@@ -29,6 +29,7 @@ import { useMemo, useState } from 'react';
 import { match, P } from 'ts-pattern';
 
 import { DocumentSigningAttachmentsPopover } from '~/components/general/document-signing/document-signing-attachments-popover';
+import { DocumentSigningAutoInsertDate } from '~/components/general/document-signing/document-signing-auto-insert-date';
 import { DocumentSigningAutoSign } from '~/components/general/document-signing/document-signing-auto-sign';
 import { DocumentSigningCheckboxField } from '~/components/general/document-signing/document-signing-checkbox-field';
 import { DocumentSigningDateField } from '~/components/general/document-signing/document-signing-date-field';
@@ -385,6 +386,10 @@ export const DocumentSigningPageViewV1 = ({
 
         {recipient.role !== RecipientRole.ASSISTANT && (
           <DocumentSigningAutoSign recipient={recipient} fields={fields} />
+        )}
+
+        {recipient.role !== RecipientRole.ASSISTANT && (
+          <DocumentSigningAutoInsertDate recipient={recipient} fields={fields} />
         )}
 
         <ElementVisible target={PDF_VIEWER_PAGE_SELECTOR}>
