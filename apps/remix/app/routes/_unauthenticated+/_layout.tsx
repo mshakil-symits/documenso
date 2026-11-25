@@ -1,8 +1,7 @@
 import backgroundPattern from '@documenso/assets/images/background-pattern.png';
 import { Outlet } from 'react-router';
-import { SourceCodeLink } from '~/components/general/source-code-link';
-
 import { PublicLegalLinks } from '~/components/general/public-legal-links';
+import { SourceCodeLink } from '~/components/general/source-code-link';
 
 export default function Layout() {
   return (
@@ -20,7 +19,7 @@ export default function Layout() {
           />
         </div>
 
-        <div className="relative w-full flex items-center justify-center">
+        <div className="relative flex w-full items-center justify-center">
           <Outlet />
         </div>
       </div>
