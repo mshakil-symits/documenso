@@ -14,8 +14,8 @@ describe('ZTextFieldMeta input kinds', () => {
     });
 
     expect(parsed.inputKind).toBe('phone');
-    expect(parsed.defaultCountry).toBe('US');
-    expect(parsed.allowedCountries).toEqual(['US', 'GB']);
+    expect(parsed.defaultCountry).toBe('us');
+    expect(parsed.allowedCountries).toEqual(['us', 'gb']);
   });
 
   it('keeps the date options and pattern', () => {
@@ -54,9 +54,12 @@ describe('ZTextFieldMeta input kinds', () => {
     expect(ZTextFieldMeta.safeParse({ ...base, inputKind: 'phone', defaultCountry: 'USA' }).success).toBe(false);
   });
 
-  it('rejects a pattern that does not compile or has nested quantifiers', () => {
-    expect(ZTextFieldMeta.safeParse({ ...base, pattern: '(' }).success).toBe(false);
-    expect(ZTextFieldMeta.safeParse({ ...base, pattern: '(a+)+$' }).success).toBe(false);
-    expect(ZTextFieldMeta.safeParse({ ...base, pattern: '\\d{3}-\\d{2}' }).success).toBe(true);
+  it('describes itself to the OpenAPI generator (no transforms or refinements in the shape)', () => {
+    // zod-openapi cannot describe ZodEffects, and the field meta is part of the API's response schemas
+    for (const key of ['pattern', 'defaultCountry', 'allowedCountries', 'inputKind']) {
+      const shape = ZTextFieldMeta.shape[key as keyof typeof ZTextFieldMeta.shape];
+
+      expect(JSON.stringify(shape._def)).not.toContain('ZodEffects');
+    }
   });
 });

@@ -1,7 +1,6 @@
 import { FieldType } from '@prisma/client';
 import { z } from 'zod';
 import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '../constants/pdf';
-import { isSafeRegex } from '../utils/safe-regex';
 
 export const FIELD_DEFAULT_GENERIC_VERTICAL_ALIGN = 'middle';
 export const FIELD_DEFAULT_GENERIC_ALIGN = 'left';
@@ -124,10 +123,9 @@ export const ZTextFieldInputKind = z.enum([
 
 export type TTextFieldInputKind = z.infer<typeof ZTextFieldInputKind>;
 
-const ZCountryCode = z
-  .string()
-  .length(2)
-  .transform((value) => value.toUpperCase());
+// Plain strings, no transform or refine: this meta is part of the API's response schemas, which zod-openapi
+// cannot describe through ZodEffects. Case is handled where the code is used, the pattern in validateTextField.
+const ZCountryCode = z.string().regex(/^[A-Za-z]{2}$/);
 
 export const ZTextFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('text'),
@@ -135,7 +133,7 @@ export const ZTextFieldMeta = ZBaseFieldMeta.extend({
   characterLimit: z.coerce.number({ invalid_type_error: 'Value must be a number' }).min(0).optional(),
   inputKind: ZTextFieldInputKind.optional(),
   minLength: z.coerce.number({ invalid_type_error: 'Value must be a number' }).min(0).optional(),
-  pattern: z.string().max(200).refine(isSafeRegex, { message: 'The pattern is invalid or too complex' }).optional(),
+  pattern: z.string().max(200).optional(),
   patternMessage: z.string().max(200).optional(),
   defaultCountry: ZCountryCode.optional(),
   allowedCountries: z.array(ZCountryCode).optional(),

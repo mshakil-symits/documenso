@@ -48,4 +48,8 @@ describe('validateTextField input kinds', () => {
     expect(validateTextField('   ', meta({ required: true }), true)).toEqual(['Value is required']);
     expect(validateTextField('   ', meta({ inputKind: 'email' }), true)).toEqual([]);
   });
+
+  it('does not let zero-width characters satisfy a required field', () => {
+    expect(validateTextField('\u200b\u2060\ufeff', meta({ required: true }), true)).toEqual(['Value is required']);
+  });
 });

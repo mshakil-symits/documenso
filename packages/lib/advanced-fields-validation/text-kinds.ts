@@ -8,7 +8,9 @@ export { isSafeRegex };
 
 export type NormalisedTextValue = { ok: true; value: string } | { ok: false; error: string };
 
-const MAX_PATTERNED_VALUE_LENGTH = 1000;
+const MAX_PATTERNED_VALUE_LENGTH = 500;
+// Zero-width and invisible filler characters: they make a value look empty, so they are not content
+const INVISIBLE = /[\u200B-\u200D\u2060\uFEFF\u3164]/g;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CURRENCY = /^-?\d{1,3}(,?\d{3})*(\.\d{1,2})?$/;
 
@@ -22,13 +24,16 @@ const parseDate = (value: string, format: string) => DateTime.fromFormat(value, 
 
 const normalisePhone = (value: string, meta: TTextFieldMeta): NormalisedTextValue => {
   const withPlus = value.replace(/^00/, '+');
-  const phone = parsePhoneNumberFromString(withPlus, meta.defaultCountry as never);
+  const phone = parsePhoneNumberFromString(withPlus, meta.defaultCountry?.toUpperCase() as never);
 
   if (!phone?.isValid()) {
     return { ok: false, error: 'Enter a valid phone number, including the country code' };
   }
 
-  if (meta.allowedCountries?.length && (!phone.country || !meta.allowedCountries.includes(phone.country))) {
+  if (
+    meta.allowedCountries?.length &&
+    (!phone.country || !meta.allowedCountries.map((code) => code.toUpperCase()).includes(phone.country))
+  ) {
     return { ok: false, error: 'This phone number is not from an accepted country' };
   }
 
@@ -88,7 +93,7 @@ const applyKind = (value: string, meta: TTextFieldMeta): NormalisedTextValue => 
  * is always fine here; whether it is required is the caller's business.
  */
 export const normaliseTextValue = (rawValue: string, meta: TTextFieldMeta): NormalisedTextValue => {
-  const value = rawValue.trim();
+  const value = rawValue.replace(INVISIBLE, '').trim();
 
   if (value === '') {
     return { ok: true, value: '' };
@@ -133,3 +138,5 @@ export const textFieldValueToStore = (value: string, meta: TTextFieldMeta): stri
 
   return result.value;
 };
+
+export const withoutInvisibleCharacters = (value: string): string => value.replace(INVISIBLE, '');

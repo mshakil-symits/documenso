@@ -25,6 +25,10 @@ describe('normaliseTextValue', () => {
     }
   });
 
+  it('does not count zero-width characters as content in a typed field', () => {
+    expect(ok('\u200b\u200b', { inputKind: 'email' })).toBe('');
+  });
+
   describe('email', () => {
     it('trims and lower-cases', () => {
       expect(ok(' A@B.com ', { inputKind: 'email' })).toBe('a@b.com');
@@ -52,6 +56,11 @@ describe('normaliseTextValue', () => {
     it('rejects letters and short numbers', () => {
       expect(fails('abc', { inputKind: 'phone', defaultCountry: 'US' })).toBe(true);
       expect(fails('12345', { inputKind: 'phone', defaultCountry: 'US' })).toBe(true);
+    });
+
+    it('takes country codes in any case', () => {
+      expect(ok('(415) 555-2671', { inputKind: 'phone', defaultCountry: 'us' as never })).toBe('+14155552671');
+      expect(ok('+1 415 555 2671', { inputKind: 'phone', allowedCountries: ['us'] as never })).toBe('+14155552671');
     });
 
     it('rejects a number from a country that is not allowed', () => {
@@ -111,7 +120,7 @@ describe('normaliseTextValue', () => {
     });
 
     it('refuses to run a pattern against a very long value', () => {
-      expect(fails('1'.repeat(1001), { pattern: '\\d+' })).toBe(true);
+      expect(fails('1'.repeat(501), { pattern: '\\d+' })).toBe(true);
     });
 
     it('applies a pattern on any kind', () => {
@@ -138,6 +147,15 @@ describe('isSafeRegex', () => {
   it('rejects alternation inside a repeated group', () => {
     expect(isSafeRegex('(a|a)*b')).toBe(false);
     expect(isSafeRegex('(x|xy)+z')).toBe(false);
+  });
+
+  it('rejects a counted repeat applied to a group', () => {
+    expect(isSafeRegex('(\\d+){2,}x')).toBe(false);
+    expect(isSafeRegex('(ab){3}')).toBe(false);
+  });
+
+  it('still accepts counted repeats on a single token', () => {
+    expect(isSafeRegex('\\d{3}-[A-Z]{2}')).toBe(true);
   });
 
   it('still accepts alternation that is not repeated', () => {

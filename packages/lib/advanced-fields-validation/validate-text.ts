@@ -1,5 +1,5 @@
 import type { TTextFieldMeta as TextFieldMeta } from '../types/field-meta';
-import { isSafeRegex, normaliseTextValue } from './text-kinds';
+import { isSafeRegex, normaliseTextValue, withoutInvisibleCharacters } from './text-kinds';
 
 export const validateTextField = (
   value: string,
@@ -10,7 +10,7 @@ export const validateTextField = (
 
   const { characterLimit, readOnly, required, fontSize } = fieldMeta;
 
-  if (required && !value.trim() && isSigningPage) {
+  if (required && !withoutInvisibleCharacters(value).trim() && isSigningPage) {
     errors.push('Value is required');
   }
 
