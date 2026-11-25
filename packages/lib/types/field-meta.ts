@@ -110,10 +110,39 @@ export const ZDateFieldMeta = ZBaseFieldMeta.extend({
 
 export type TDateFieldMeta = z.infer<typeof ZDateFieldMeta>;
 
+// What a TEXT field asks for. Absent means a plain text field, as before.
+export const ZTextFieldInputKind = z.enum([
+  'text',
+  'email',
+  'phone',
+  'date',
+  'time',
+  'datetime',
+  'currency',
+  'pattern',
+]);
+
+export type TTextFieldInputKind = z.infer<typeof ZTextFieldInputKind>;
+
+const ZCountryCode = z
+  .string()
+  .length(2)
+  .transform((value) => value.toUpperCase());
+
 export const ZTextFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('text'),
   text: z.string().optional(),
   characterLimit: z.coerce.number({ invalid_type_error: 'Value must be a number' }).min(0).optional(),
+  inputKind: ZTextFieldInputKind.optional(),
+  minLength: z.coerce.number({ invalid_type_error: 'Value must be a number' }).min(0).optional(),
+  pattern: z.string().max(200).optional(),
+  patternMessage: z.string().max(200).optional(),
+  defaultCountry: ZCountryCode.optional(),
+  allowedCountries: z.array(ZCountryCode).optional(),
+  dateFormat: z.string().max(40).optional(),
+  minDate: z.string().max(40).optional(),
+  maxDate: z.string().max(40).optional(),
+  multiline: z.boolean().optional(),
   textAlign: ZFieldTextAlignSchema.optional(),
   lineHeight: ZFieldMetaLineHeight.nullish(),
   letterSpacing: ZFieldMetaLetterSpacing.nullish(),
