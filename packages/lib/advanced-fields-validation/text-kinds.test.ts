@@ -135,6 +135,15 @@ describe('isSafeRegex', () => {
     expect(isSafeRegex('(a*)*')).toBe(false);
   });
 
+  it('rejects alternation inside a repeated group', () => {
+    expect(isSafeRegex('(a|a)*b')).toBe(false);
+    expect(isSafeRegex('(x|xy)+z')).toBe(false);
+  });
+
+  it('still accepts alternation that is not repeated', () => {
+    expect(isSafeRegex('(Mr|Mrs)\\.? [A-Z][a-z]+')).toBe(true);
+  });
+
   it('rejects a pattern over 200 characters', () => {
     expect(isSafeRegex('a'.repeat(201))).toBe(false);
   });

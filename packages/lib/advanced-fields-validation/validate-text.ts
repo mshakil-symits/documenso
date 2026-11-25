@@ -10,7 +10,7 @@ export const validateTextField = (
 
   const { characterLimit, readOnly, required, fontSize } = fieldMeta;
 
-  if (required && !value && isSigningPage) {
+  if (required && !value.trim() && isSigningPage) {
     errors.push('Value is required');
   }
 

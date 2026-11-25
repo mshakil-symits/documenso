@@ -4,6 +4,11 @@ import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/tr
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
 import { ZTextFieldMeta } from '@documenso/lib/types/field-meta';
+import {
+  formatTextForDisplay,
+  splitTextFieldErrors,
+  textInputTypeFor,
+} from '@documenso/lib/utils/field-signing/text-field';
 import type { FieldWithSignatureAndFieldMeta } from '@documenso/prisma/types/field-with-signature-and-fieldmeta';
 import { trpc } from '@documenso/trpc/react';
 import type {
@@ -13,6 +18,7 @@ import type {
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@documenso/ui/primitives/dialog';
+import { Input } from '@documenso/ui/primitives/input';
 import { Textarea } from '@documenso/ui/primitives/textarea';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 import { msg } from '@lingui/core/macro';
@@ -39,6 +45,7 @@ export type DocumentSigningTextFieldProps = {
 type ValidationErrors = {
   required: string[];
   characterLimit: string[];
+  format: string[];
 };
 
 export type TextFieldProps = {
@@ -58,6 +65,7 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
   const initialErrors: ValidationErrors = {
     required: [],
     characterLimit: [],
+    format: [],
   };
   const [errors, setErrors] = useState(initialErrors);
   const userInputHasErrors = Object.values(errors).some((error) => error.length > 0);
@@ -88,16 +96,13 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
     }
   }, [showCustomTextModal]);
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     const text = e.target.value;
     setLocalCustomText(text);
 
     if (parsedFieldMeta) {
       const validationErrors = validateTextField(text, parsedFieldMeta, true);
-      setErrors({
-        required: validationErrors.filter((error) => error.includes('required')),
-        characterLimit: validationErrors.filter((error) => error.includes('character limit')),
-      });
+      setErrors(splitTextFieldErrors(validationErrors));
     }
   };
 
@@ -109,10 +114,7 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
       const validationErrors = validateTextField(localText, parsedFieldMeta, true);
 
       if (validationErrors.length > 0) {
-        setErrors({
-          required: validationErrors.filter((error) => error.includes('required')),
-          characterLimit: validationErrors.filter((error) => error.includes('character limit')),
-        });
+        setErrors(splitTextFieldErrors(validationErrors));
         return;
       }
     }
@@ -130,10 +132,7 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
 
     if (localText && parsedFieldMeta) {
       const validationErrors = validateTextField(localText, parsedFieldMeta, true);
-      setErrors({
-        required: validationErrors.filter((error) => error.includes('required')),
-        characterLimit: validationErrors.filter((error) => error.includes('character limit')),
-      });
+      setErrors(splitTextFieldErrors(validationErrors));
     }
 
     return false;
@@ -239,6 +238,11 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
   const textDisplay = parsedField?.text;
 
   const fieldDisplayName = labelDisplay ? labelDisplay : textDisplay;
+  const inputType = parsedFieldMeta ? textInputTypeFor(parsedFieldMeta) : 'textarea';
+  const dateFormatHint =
+    parsedFieldMeta?.dateFormat && ['date', 'time', 'datetime'].includes(parsedFieldMeta.inputKind ?? '')
+      ? parsedFieldMeta.dateFormat
+      : _(msg`Enter your text here`);
   const charactersRemaining = (parsedFieldMeta?.characterLimit ?? 0) - (localText.length ?? 0);
 
   return (
@@ -251,7 +255,7 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
 
       {field.inserted && (
         <DocumentSigningFieldsInserted textAlign={parsedFieldMeta?.textAlign}>
-          {field.customText}
+          {parsedFieldMeta ? formatTextForDisplay(field.customText, parsedFieldMeta) : field.customText}
         </DocumentSigningFieldsInserted>
       )}
 
@@ -260,18 +264,34 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
           <DialogTitle>{parsedFieldMeta?.label ? parsedFieldMeta?.label : <Trans>Text</Trans>}</DialogTitle>
 
           <div>
-            <Textarea
-              id="custom-text"
-              placeholder={parsedFieldMeta?.placeholder ?? _(msg`Enter your text here`)}
-              className={cn('mt-2 w-full rounded-md', {
-                'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':
-                  userInputHasErrors,
-                'text-center': parsedFieldMeta?.textAlign === 'center',
-                'text-right': parsedFieldMeta?.textAlign === 'right',
-              })}
-              value={localText}
-              onChange={handleTextChange}
-            />
+            {inputType === 'textarea' ? (
+              <Textarea
+                id="custom-text"
+                placeholder={parsedFieldMeta?.placeholder ?? _(msg`Enter your text here`)}
+                className={cn('mt-2 w-full rounded-md', {
+                  'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':
+                    userInputHasErrors,
+                  'text-center': parsedFieldMeta?.textAlign === 'center',
+                  'text-right': parsedFieldMeta?.textAlign === 'right',
+                })}
+                value={localText}
+                onChange={handleTextChange}
+              />
+            ) : (
+              <Input
+                id="custom-text"
+                type={inputType}
+                placeholder={parsedFieldMeta?.placeholder ?? dateFormatHint}
+                className={cn('mt-2 w-full rounded-md', {
+                  'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':
+                    userInputHasErrors,
+                  'text-center': parsedFieldMeta?.textAlign === 'center',
+                  'text-right': parsedFieldMeta?.textAlign === 'right',
+                })}
+                value={localText}
+                onChange={handleTextChange}
+              />
+            )}
           </div>
 
           {parsedFieldMeta?.characterLimit !== undefined &&
@@ -289,6 +309,11 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
           {userInputHasErrors && (
             <div className="text-sm">
               {errors.required.map((error, index) => (
+                <p key={index} className="text-red-500">
+                  {error}
+                </p>
+              ))}
+              {errors.format.map((error, index) => (
                 <p key={index} className="text-red-500">
                   {error}
                 </p>

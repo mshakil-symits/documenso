@@ -43,4 +43,9 @@ describe('validateTextField input kinds', () => {
   it('accepts a field with a safe pattern at creation', () => {
     expect(validateTextField('', meta({ pattern: '\\d+' }))).toEqual([]);
   });
+
+  it('treats a whitespace-only value as empty: required fails, optional passes', () => {
+    expect(validateTextField('   ', meta({ required: true }), true)).toEqual(['Value is required']);
+    expect(validateTextField('   ', meta({ inputKind: 'email' }), true)).toEqual([]);
+  });
 });
