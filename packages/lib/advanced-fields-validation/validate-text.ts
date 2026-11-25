@@ -18,8 +18,10 @@ export const validateTextField = (
     errors.push(`Value length (${value.length}) exceeds the character limit (${characterLimit})`);
   }
 
-  if (fieldMeta.minLength && value.length > 0 && value.length < fieldMeta.minLength) {
-    errors.push(`Value length (${value.length}) is below the minimum length (${fieldMeta.minLength})`);
+  const visibleLength = withoutInvisibleCharacters(value).length;
+
+  if (fieldMeta.minLength && visibleLength > 0 && visibleLength < fieldMeta.minLength) {
+    errors.push(`Value length (${visibleLength}) is below the minimum length (${fieldMeta.minLength})`);
   }
 
   if (fieldMeta.pattern && !isSafeRegex(fieldMeta.pattern)) {

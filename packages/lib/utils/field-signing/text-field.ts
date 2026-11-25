@@ -1,6 +1,7 @@
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
-import type { TTextFieldMeta } from '../../types/field-meta';
+import { VALID_DATE_FORMAT_VALUES } from '../../constants/date-formats';
+import type { TTextFieldInputKind, TTextFieldMeta } from '../../types/field-meta';
 
 export type TextInputType = 'textarea' | 'text' | 'email' | 'tel' | 'date' | 'time';
 
@@ -43,3 +44,16 @@ export const splitTextFieldErrors = (errors: string[]) => ({
   characterLimit: errors.filter((error) => error.includes('character limit')),
   format: errors.filter((error) => !error.includes('required') && !error.includes('character limit')),
 });
+
+const hasTimeToken = (format: string) => /h|H/.test(format);
+
+/** The formats an author may pick for a date, time or datetime field, from Documenso's own list. */
+export const dateFormatsFor = (kind: TTextFieldInputKind | undefined): string[] => {
+  if (kind === 'time') {
+    return ['HH:mm', 'hh:mm a'];
+  }
+
+  const all: string[] = [...VALID_DATE_FORMAT_VALUES];
+
+  return all.filter((format) => (kind === 'datetime' ? hasTimeToken(format) : !hasTimeToken(format)));
+};

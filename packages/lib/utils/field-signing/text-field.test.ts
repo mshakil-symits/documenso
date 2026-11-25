@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { TTextFieldMeta } from '../../types/field-meta';
-import { formatTextForDisplay, splitTextFieldErrors, textInputTypeFor } from './text-field';
+import { dateFormatsFor, formatTextForDisplay, splitTextFieldErrors, textInputTypeFor } from './text-field';
 
 const meta = (extra: Partial<TTextFieldMeta>): TTextFieldMeta => ({ type: 'text', ...extra });
 
@@ -56,5 +56,26 @@ describe('splitTextFieldErrors', () => {
       characterLimit: ['Value length (5) exceeds the character limit (3)'],
       format: ['Enter a valid email address'],
     });
+  });
+});
+
+describe('dateFormatsFor', () => {
+  it('offers date-only formats for a date', () => {
+    const formats = dateFormatsFor('date');
+
+    expect(formats).toContain('yyyy-MM-dd');
+    expect(formats).toContain('dd/MM/yyyy');
+    expect(formats.some((format) => /h|H/.test(format))).toBe(false);
+  });
+
+  it('offers formats with a time for a datetime', () => {
+    const formats = dateFormatsFor('datetime');
+
+    expect(formats).toContain('yyyy-MM-dd HH:mm');
+    expect(formats.every((format) => /h|H/.test(format))).toBe(true);
+  });
+
+  it('offers time-only formats for a time', () => {
+    expect(dateFormatsFor('time')).toEqual(['HH:mm', 'hh:mm a']);
   });
 });

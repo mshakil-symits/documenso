@@ -52,4 +52,8 @@ describe('validateTextField input kinds', () => {
   it('does not let zero-width characters satisfy a required field', () => {
     expect(validateTextField('\u200b\u2060\ufeff', meta({ required: true }), true)).toEqual(['Value is required']);
   });
+
+  it('measures minLength on the visible characters, not zero-width ones', () => {
+    expect(validateTextField('a\u200b\u200b\u200b', meta({ minLength: 3 }), true)).toHaveLength(1);
+  });
 });
