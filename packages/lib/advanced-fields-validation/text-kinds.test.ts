@@ -141,6 +141,8 @@ describe('isSafeRegex catastrophic shapes', () => {
     '(a)\\1',
     '(?=a)a',
     '(?<=a)b',
+    '\\d{1,20}\\d{1,20}\\d{1,20}\\d{1,20}\\d{1,20}\\d{1,20}x',
+    'a{1,20}a{1,20}a{1,20}a{1,20}a{1,20}b',
   ])('rejects %s', (pattern) => {
     expect(isSafeRegex(pattern)).toBe(false);
   });

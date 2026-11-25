@@ -1,10 +1,10 @@
 const MAX_PATTERN_LENGTH = 200;
-// Quantifiers in one pattern, and how many of them may repeat without a small bound. Backtracking cost grows
-// with the number of unbounded repeats (polynomially) and optional parts (exponentially), so both are capped.
+// Optional parts multiply backtracking too, so the number of quantifiers is capped as well.
 const MAX_QUANTIFIERS = 16;
-const MAX_UNBOUNDED = 2;
-// A repeat counts as unbounded above this many; {1,100}{1,100}{1,100} backtracks like three stars.
-const SMALL_BOUND = 20;
+// Worst-case backtracking is about the product of how many ways each quantifier can match, so that product is
+// capped. An open-ended repeat counts as the longest value a pattern is ever run on.
+const MAX_COMBINATIONS = 1_000_000;
+const OPEN_ENDED = 500;
 
 const QUANTIFIER_BRACES = /^\{(\d+)(?:(,)(\d*))?\}/;
 
@@ -14,8 +14,7 @@ const QUANTIFIER_BRACES = /^\{(\d+)(?:(,)(\d*))?\}/;
  * Instead of trying to spot every catastrophic shape, this accepts only a small, linear-ish subset: literals,
  * escapes (but no backreferences), character classes, alternation, groups, and quantifiers on single atoms.
  * A group may only be made optional (`?`), never repeated, so there are no nested repeats and no repeated
- * alternation; lookarounds and backreferences are refused; the number of quantifiers, and of unbounded ones,
- * is capped. Callers also cap the length of the value the pattern is run on.
+ * alternation; lookarounds and backreferences are refused; the number of quantifiers and the product of their ranges are capped. Callers also cap the length of the value the pattern is run on.
  */
 export const isSafeRegex = (pattern: string): boolean => {
   if (pattern.length > MAX_PATTERN_LENGTH) {
@@ -23,12 +22,12 @@ export const isSafeRegex = (pattern: string): boolean => {
   }
 
   let quantifiers = 0;
-  let unbounded = 0;
+  let combinations = 1;
   let depth = 0;
   // What the previous token was, so a quantifier knows what it applies to
   let previous: 'none' | 'atom' | 'group' | 'quantifier' = 'none';
 
-  const quantify = (max: number, onlyOptional: boolean): boolean => {
+  const quantify = (min: number, max: number, onlyOptional: boolean): boolean => {
     if (previous === 'none' || previous === 'quantifier') {
       return false;
     }
@@ -39,11 +38,9 @@ export const isSafeRegex = (pattern: string): boolean => {
 
     quantifiers += 1;
 
-    if (max > SMALL_BOUND) {
-      unbounded += 1;
-    }
+    combinations *= Math.max(1, Math.min(max, OPEN_ENDED) - min + 1);
 
-    return quantifiers <= MAX_QUANTIFIERS && unbounded <= MAX_UNBOUNDED;
+    return quantifiers <= MAX_QUANTIFIERS && combinations <= MAX_COMBINATIONS;
   };
 
   for (let i = 0; i < pattern.length; i += 1) {
@@ -99,7 +96,7 @@ export const isSafeRegex = (pattern: string): boolean => {
     } else if (char === '|') {
       previous = 'none';
     } else if (char === '*' || char === '+') {
-      if (!quantify(Number.POSITIVE_INFINITY, false)) {
+      if (!quantify(0, Number.POSITIVE_INFINITY, false)) {
         return false;
       }
 
@@ -110,7 +107,7 @@ export const isSafeRegex = (pattern: string): boolean => {
         continue;
       }
 
-      if (!quantify(1, true)) {
+      if (!quantify(0, 1, true)) {
         return false;
       }
 
@@ -127,7 +124,7 @@ export const isSafeRegex = (pattern: string): boolean => {
       const min = Number(match[1]);
       const max = match[2] ? (match[3] ? Number(match[3]) : Number.POSITIVE_INFINITY) : min;
 
-      if (max < min || !quantify(max, false)) {
+      if (max < min || !quantify(min, max, false)) {
         return false;
       }
 

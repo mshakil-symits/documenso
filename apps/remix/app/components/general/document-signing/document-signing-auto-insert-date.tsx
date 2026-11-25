@@ -7,6 +7,7 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import type { Field, Recipient } from '@prisma/client';
+import { useRef } from 'react';
 import { useRevalidator } from 'react-router';
 
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
@@ -29,7 +30,16 @@ export const DocumentSigningAutoInsertDate = ({ recipient, fields }: DocumentSig
 
   const { mutateAsync: signFieldWithToken } = trpc.field.signFieldWithToken.useMutation();
 
+  // StrictMode runs the effect twice in development, and two signs of one field race on the server
+  const started = useRef(false);
+
   unsafe_useEffectOnce(() => {
+    if (started.current) {
+      return;
+    }
+
+    started.current = true;
+
     const enabled = env('NEXT_PUBLIC_AUTO_INSERT_DATE_FIELDS') === 'true';
     const dateFields = dateFieldsToAutoInsert(fields, derivedRecipientActionAuth, enabled);
 

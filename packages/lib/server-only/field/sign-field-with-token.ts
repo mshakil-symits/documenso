@@ -17,6 +17,7 @@ import { DEFAULT_DOCUMENT_TIME_ZONE } from '../../constants/time-zones';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '../../types/document-audit-logs';
 import type { TRecipientActionAuth } from '../../types/document-auth';
 import {
+  type TTextFieldMeta,
   ZCheckboxFieldMeta,
   ZDropdownFieldMeta,
   ZNumberFieldMeta,
@@ -48,6 +49,15 @@ export type SignFieldWithTokenOptions = {
  *
  * Todo: Extract common logic.
  */
+/** A read-only typed field's default, as it is stored once signed (the value that was typed is normalised). */
+const storedDefaultText = (meta: TTextFieldMeta): string | undefined => {
+  try {
+    return textFieldValueToStore(meta.text ?? '', meta);
+  } catch {
+    return undefined;
+  }
+};
+
 export const signFieldWithToken = async ({
   token,
   fieldId,
@@ -220,7 +230,7 @@ export const signFieldWithToken = async ({
     // !: this weird programattic approach. Until that's fixed though this will verify
     // !: that the programmatic signed value is only that of its default.
     const isAutomaticSigningValueValid = match(field.fieldMeta)
-      .with({ type: 'text' }, (meta) => customText === meta.text)
+      .with({ type: 'text' }, (meta) => customText === meta.text || customText === storedDefaultText(meta))
       .with({ type: 'number' }, (meta) => customText === meta.value)
       .with({ type: 'checkbox' }, (meta) =>
         isDeepEqual(

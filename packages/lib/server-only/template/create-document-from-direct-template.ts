@@ -17,14 +17,15 @@ import {
 import { DateTime } from 'luxon';
 import { match } from 'ts-pattern';
 import { z } from 'zod';
-
+import { textFieldValueToStore } from '../../advanced-fields-validation/text-kinds';
+import { validateTextField } from '../../advanced-fields-validation/validate-text';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { jobs } from '../../jobs/client';
 import { DOCUMENT_AUDIT_LOG_TYPE, RECIPIENT_DIFF_TYPE } from '../../types/document-audit-logs';
 import type { TRecipientActionAuthTypes } from '../../types/document-auth';
 import { DocumentAccessAuth, ZRecipientAuthOptionsSchema } from '../../types/document-auth';
 import { extractDerivedDocumentEmailSettings } from '../../types/document-email';
-import { ZFieldMetaSchema } from '../../types/field-meta';
+import { ZFieldMetaSchema, ZTextFieldMeta } from '../../types/field-meta';
 import { ZSignatureLevelSchema } from '../../types/signature-level';
 import { mapEnvelopeToWebhookDocumentPayload, ZWebhookDocumentSchema } from '../../types/webhook-payload';
 import type { ApiRequestMetadata } from '../../universal/extract-request-metadata';
@@ -292,6 +293,21 @@ export const createDocumentFromDirectTemplate = async ({
         templateField.type === FieldType.SIGNATURE || templateField.type === FieldType.FREE_SIGNATURE;
 
       let customText = !isSignatureField ? value : '';
+
+      // A direct-link signer's text goes through the same format checks as any other signer
+      if (value !== undefined && templateField.type === FieldType.TEXT && templateField.fieldMeta) {
+        const textMeta = ZTextFieldMeta.safeParse(templateField.fieldMeta);
+
+        if (textMeta.success) {
+          const errors = validateTextField(value, textMeta.data, true);
+
+          if (errors.length > 0) {
+            throw new AppError(AppErrorCode.INVALID_BODY, { message: errors[0] });
+          }
+
+          customText = textFieldValueToStore(value, textMeta.data);
+        }
+      }
 
       const signatureImageAsBase64 = isSignatureField && isBase64 ? value : undefined;
       const typedSignature = isSignatureField && !isBase64 ? value : undefined;

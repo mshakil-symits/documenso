@@ -1,3 +1,4 @@
+import { textFieldValueToStore } from '@documenso/lib/advanced-fields-validation/text-kinds';
 import { validateCheckboxLength } from '@documenso/lib/advanced-fields-validation/validate-checkbox';
 import { validateDropdownField } from '@documenso/lib/advanced-fields-validation/validate-dropdown';
 import { validateNumberField } from '@documenso/lib/advanced-fields-validation/validate-number';
@@ -128,12 +129,13 @@ export const extractFieldInsertionValues = ({
 
       if (errors.length > 0) {
         throw new AppError(AppErrorCode.INVALID_BODY, {
-          message: 'Invalid email',
+          message: errors[0],
         });
       }
 
       return {
-        customText: fieldValue.value,
+        // Typed kinds are stored normalised (phone E.164, email lower-cased); a plain field as typed
+        customText: textFieldValueToStore(fieldValue.value, parsedTextFieldMeta),
         inserted: true,
       };
     })
