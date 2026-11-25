@@ -36,7 +36,7 @@ const parseDate = (value: string, format: string) => DateTime.fromFormat(value, 
 
 const normalisePhone = (value: string, meta: TTextFieldMeta): NormalisedTextValue => {
   const withPlus = value.replace(/^00/, '+');
-  const phone = parsePhoneNumberFromString(withPlus, meta.defaultCountry?.toUpperCase() as never);
+  const phone = parsePhoneNumberFromString(withPlus, (meta.defaultCountry?.toUpperCase() || undefined) as never);
 
   if (!phone?.isValid()) {
     return { ok: false, error: 'Enter a valid phone number, including the country code' };

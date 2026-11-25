@@ -126,6 +126,8 @@ export type TTextFieldInputKind = z.infer<typeof ZTextFieldInputKind>;
 // Plain strings, no transform or refine: this meta is part of the API's response schemas, which zod-openapi
 // cannot describe through ZodEffects. Case is handled where the code is used, the pattern in validateTextField.
 const ZCountryCode = z.string().regex(/^[A-Za-z]{2}$/);
+// Empty means "no default country", which is what a cleared editor input holds
+const ZDefaultCountry = z.string().regex(/^([A-Za-z]{2})?$/);
 
 export const ZTextFieldMeta = ZBaseFieldMeta.extend({
   type: z.literal('text'),
@@ -135,7 +137,7 @@ export const ZTextFieldMeta = ZBaseFieldMeta.extend({
   minLength: z.coerce.number({ invalid_type_error: 'Value must be a number' }).min(0).optional(),
   pattern: z.string().max(200).optional(),
   patternMessage: z.string().max(200).optional(),
-  defaultCountry: ZCountryCode.optional(),
+  defaultCountry: ZDefaultCountry.optional(),
   allowedCountries: z.array(ZCountryCode).optional(),
   dateFormat: z.string().max(40).optional(),
   minDate: z.string().max(40).optional(),

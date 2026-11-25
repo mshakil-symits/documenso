@@ -1,7 +1,7 @@
 import { getServerLimits } from '@documenso/ee/server-only/limits/server';
+import { assertTextFieldMetaUsable } from '@documenso/lib/advanced-fields-validation/assert-text-meta';
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { DATE_FORMATS, DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
-import { isSafeRegex } from '@documenso/lib/utils/safe-regex';
 import { DocumentDataType, DocumentStatus, EnvelopeType, SigningStatus } from '@prisma/client';
 import { tsr } from '@ts-rest/serverless/fetch';
 import { match } from 'ts-pattern';
@@ -1418,12 +1418,8 @@ export const ApiContractV1Implementation = tsr.router(ApiContractV1, {
               throw new Error('Field meta parsing failed');
             }
 
-            // The text meta's pattern runs against a signer's input, so it is checked here, not in the schema.
-            if (type === 'TEXT' && result.data && 'pattern' in result.data && result.data.pattern) {
-              if (!isSafeRegex(result.data.pattern)) {
-                throw new Error('Field meta pattern is invalid or too complex');
-              }
-            }
+            // A pattern runs against a signer's input, so it is checked here, not in the schema.
+            assertTextFieldMetaUsable(type === 'TEXT' ? result.data : undefined);
 
             const field = await tx.field.create({
               data: {

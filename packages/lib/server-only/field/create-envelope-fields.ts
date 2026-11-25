@@ -7,6 +7,7 @@ import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-
 import { prisma } from '@documenso/prisma';
 import { PDF } from '@libpdf/core';
 import { EnvelopeType } from '@prisma/client';
+import { assertTextFieldMetaUsable } from '../../advanced-fields-validation/assert-text-meta';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
@@ -108,6 +109,10 @@ export const createEnvelopeFields = async ({
     throw new AppError(AppErrorCode.NOT_FOUND, {
       message: 'Envelope item not found',
     });
+  }
+
+  for (const field of fields) {
+    assertTextFieldMetaUsable(field.fieldMeta);
   }
 
   const hasPlaceholderFields = fields.some((field) => isPlaceholderPosition(field));

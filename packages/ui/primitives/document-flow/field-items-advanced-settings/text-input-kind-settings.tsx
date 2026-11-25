@@ -4,6 +4,7 @@ import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@documenso/ui/primitives/select';
 import { Trans, useLingui } from '@lingui/react/macro';
+import { useState } from 'react';
 
 export type TextInputKindKey =
   | 'inputKind'
@@ -15,6 +16,31 @@ export type TextInputKindKey =
   | 'minDate'
   | 'maxDate';
 
+const DATE_KINDS = ['date', 'time', 'datetime'];
+
+/** The options that do not belong to a kind: cleared when the author switches to it. */
+const staleKeysFor = (kind: string): TextInputKindKey[] => {
+  const stale: TextInputKindKey[] = ['dateFormat'];
+
+  if (!DATE_KINDS.includes(kind)) {
+    stale.push('minDate', 'maxDate');
+  }
+
+  if (kind !== 'pattern') {
+    stale.push('pattern', 'patternMessage');
+  }
+
+  if (kind !== 'phone') {
+    stale.push('defaultCountry');
+  }
+
+  if (kind !== 'text' && kind !== 'pattern') {
+    stale.push('minLength');
+  }
+
+  return stale;
+};
+
 type TextInputKindSettingsProps = {
   meta: Pick<TTextFieldMeta, TextInputKindKey>;
   onChange: (key: TextInputKindKey, value: string) => void;
@@ -24,6 +50,7 @@ type TextInputKindSettingsProps = {
 export const TextInputKindSettings = ({ meta, onChange }: TextInputKindSettingsProps) => {
   const { t } = useLingui();
   const kind = meta.inputKind ?? 'text';
+  const [country, setCountry] = useState(meta.defaultCountry ?? '');
   const isDateKind = kind === 'date' || kind === 'time' || kind === 'datetime';
 
   return (
@@ -37,8 +64,10 @@ export const TextInputKindSettings = ({ meta, onChange }: TextInputKindSettingsP
           onValueChange={(value) => {
             if (value) {
               onChange('inputKind', value);
-              // A format from another kind would not parse the new kind's values.
-              onChange('dateFormat', '');
+              // Options of the previous kind are hidden for the new one, so they must not keep applying.
+              for (const key of staleKeysFor(value)) {
+                onChange(key, '');
+              }
             }
           }}
         >
@@ -67,8 +96,17 @@ export const TextInputKindSettings = ({ meta, onChange }: TextInputKindSettingsP
             id="defaultCountry"
             className="mt-2 bg-background"
             maxLength={2}
-            value={meta.defaultCountry ?? ''}
-            onChange={(e) => onChange('defaultCountry', e.target.value.toUpperCase())}
+            value={country}
+            onChange={(e) => {
+              const next = e.target.value.toUpperCase();
+
+              setCountry(next);
+
+              // Half a country code is not valid meta, so it is only passed on when empty or complete.
+              if (next.length === 0 || next.length === 2) {
+                onChange('defaultCountry', next);
+              }
+            }}
           />
         </div>
       )}
