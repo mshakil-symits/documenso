@@ -52,6 +52,7 @@
     "jose": "^6.1.2",
     "konva": "^10.0.9",
     "kysely": "0.29.2",
+    "libphonenumber-js": "^1.13.17",
     "luxon": "^3.7.2",
     "mailchecker": "^6.0.20",
     "nanoid": "^5.1.6",

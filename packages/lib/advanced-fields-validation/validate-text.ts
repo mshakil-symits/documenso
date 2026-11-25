@@ -1,4 +1,5 @@
 import type { TTextFieldMeta as TextFieldMeta } from '../types/field-meta';
+import { normaliseTextValue } from './text-kinds';
 
 export const validateTextField = (
   value: string,
@@ -15,6 +16,18 @@ export const validateTextField = (
 
   if (characterLimit !== undefined && characterLimit > 0 && value.length > characterLimit) {
     errors.push(`Value length (${value.length}) exceeds the character limit (${characterLimit})`);
+  }
+
+  if (fieldMeta.minLength && value.length > 0 && value.length < fieldMeta.minLength) {
+    errors.push(`Value length (${value.length}) is below the minimum length (${fieldMeta.minLength})`);
+  }
+
+  if (value.length > 0) {
+    const normalised = normaliseTextValue(value, fieldMeta);
+
+    if (!normalised.ok) {
+      errors.push(normalised.error);
+    }
   }
 
   if (readOnly && value.length < 1) {
