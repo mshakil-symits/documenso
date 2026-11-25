@@ -1,3 +1,8 @@
+import { AdminRuleEngine } from '@documenso/ee/server-only/admin-rules/admin-rule-engine';
+import type {
+  AdminRuleEventEnvelope,
+  AdminRuleEventUser,
+} from '@documenso/ee/server-only/admin-rules/admin-rule-event';
 import { materializeTspAnchorsForEnvelope } from '@documenso/ee/server-only/signing/csc/materialize-anchors';
 import { resolveExpiresAt } from '@documenso/lib/constants/envelope-expiration';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
@@ -5,7 +10,7 @@ import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-reques
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
 import { checkboxValidationSigns } from '@documenso/ui/primitives/document-flow/field-items-advanced-settings/constants';
-import type { DocumentData, Envelope, EnvelopeItem, Field, Recipient } from '@prisma/client';
+import type { DocumentData, DocumentMeta, Envelope, EnvelopeItem, Field, Recipient } from '@prisma/client';
 import {
   DocumentSigningOrder,
   DocumentStatus,
@@ -16,6 +21,7 @@ import {
   SigningStatus,
   WebhookTriggerEvents,
 } from '@prisma/client';
+import pMap from 'p-map';
 
 import { validateCheckboxLength } from '../../advanced-fields-validation/validate-checkbox';
 import { DIRECT_TEMPLATE_RECIPIENT_EMAIL } from '../../constants/direct-templates';
@@ -37,11 +43,20 @@ import { putNormalizedPdfFileServerSide } from '../../universal/upload/put-file.
 import { isDocumentCompleted } from '../../utils/document';
 import { extractDocumentAuthMethods } from '../../utils/document-auth';
 import { type EnvelopeIdOptions, mapSecondaryIdToDocumentId } from '../../utils/envelope';
+import { assertEnvelopeContentLimits, getContentsMissingImages } from '../../utils/envelope-content';
 import { toCheckboxCustomText, toRadioCustomText } from '../../utils/fields';
+import { getRecipientsInActiveSigningStep } from '../../utils/recipient-groups';
 import { getRecipientsWithMissingFields, isRecipientEmailValidForSending } from '../../utils/recipients';
+import { loadContentImages } from '../data-content/load-content-images';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import {
+  commitRenderedEnvelopeItems,
+  RENDER_CONTENTS_CONCURRENCY,
+  type RenderedEnvelopeItem,
+  renderContentsIntoEnvelopeItem,
+} from '../envelope-content/insert-contents-into-envelope-item';
 import { insertFormValuesInPdf } from '../pdf/insert-form-values-in-pdf';
-import { assertUserNotDisabledById } from '../user/assert-user-not-disabled';
+import { assertUserNotDisabled } from '../user/assert-user-not-disabled';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 
 export type SendDocumentOptions = {
@@ -49,14 +64,48 @@ export type SendDocumentOptions = {
   userId: number;
   teamId: number;
   sendEmail?: boolean;
+  /**
+   * Skips the admin rules here, for callers that already ran them for this document, as direct links
+   * do. The signing email jobs still check each email when they send it.
+   */
+  bypassAdminRules?: boolean;
   requestMetadata: ApiRequestMetadata;
 };
 
-export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetadata }: SendDocumentOptions) => {
+export const sendDocument = async ({
+  id,
+  userId,
+  teamId,
+  sendEmail,
+  bypassAdminRules,
+  requestMetadata,
+}: SendDocumentOptions) => {
+  // One lookup for both the disabled check and the sender the admin rules see.
+  const sender = await prisma.user.findFirst({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      createdAt: true,
+      twoFactorEnabled: true,
+      disabled: true,
+    },
+  });
+
+  if (!sender) {
+    throw new AppError(AppErrorCode.NOT_FOUND, {
+      message: 'User not found',
+      statusCode: 404,
+    });
+  }
+
   // Refuse to send on behalf of a disabled account. Guards distribute /
   // redistribute / template-use routes, the bulk-send job, and direct
   // templates that auto-send on creation.
-  await assertUserNotDisabledById({ userId });
+  assertUserNotDisabled(sender);
 
   const { envelopeWhereInput } = await getEnvelopeWhereInput({
     id,
@@ -73,6 +122,14 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
       },
       fields: true,
       documentMeta: true,
+      contents: {
+        select: {
+          id: true,
+          dataContentId: true,
+          contentMeta: true,
+          envelopeItemId: true,
+        },
+      },
       envelopeItems: {
         select: {
           id: true,
@@ -88,11 +145,20 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
       },
       team: {
         select: {
+          id: true,
+          url: true,
+          name: true,
           organisation: {
             select: {
+              id: true,
+              type: true,
+              name: true,
               organisationClaim: {
                 select: {
                   recipientCount: true,
+                  originalSubscriptionClaimId: true,
+                  envelopeContentCount: true,
+                  envelopeContentImageCount: true,
                 },
               },
             },
@@ -126,7 +192,7 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
 
   const legacyDocumentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
 
-  let signingOrder = envelope.documentMeta?.signingOrder || DocumentSigningOrder.PARALLEL;
+  const signingOrder = envelope.documentMeta?.signingOrder || DocumentSigningOrder.PARALLEL;
 
   if (isTspEnvelope(envelope) && signingOrder === DocumentSigningOrder.PARALLEL && envelope.documentMeta) {
     console.warn(
@@ -142,18 +208,7 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
       },
     });
 
-    signingOrder = DocumentSigningOrder.SEQUENTIAL;
-
     envelope.documentMeta.signingOrder = DocumentSigningOrder.SEQUENTIAL;
-  }
-
-  let recipientsToNotify = envelope.recipients;
-
-  if (signingOrder === DocumentSigningOrder.SEQUENTIAL) {
-    // Get the currently active recipient.
-    recipientsToNotify = envelope.recipients
-      .filter((r) => r.signingStatus === SigningStatus.NOT_SIGNED && r.role !== RecipientRole.CC)
-      .slice(0, 1);
   }
 
   if (envelope.envelopeItems.length === 0) {
@@ -186,6 +241,22 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
     }
   });
 
+  // An image content without an image renders nothing, so the document would
+  // silently ship without it.
+  const contentsMissingImages = getContentsMissingImages(envelope.contents);
+
+  if (contentsMissingImages.length > 0) {
+    throw new AppError('MISSING_CONTENT_IMAGE', {
+      message: `The following contents have no image attached: ${contentsMissingImages.map((content) => content.id).join(', ')}.`,
+      statusCode: 400,
+    });
+  }
+
+  assertEnvelopeContentLimits(
+    envelope.contents.map((content) => content.contentMeta.type),
+    envelope.team.organisation.organisationClaim,
+  );
+
   // Validate that recipients who require fields (e.g., signers need signature fields) have them.
   const recipientsWithMissingFields = getRecipientsWithMissingFields(envelope.recipients, envelope.fields);
 
@@ -199,11 +270,61 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
     });
   }
 
+  const recipientsToNotify = getSigningRequestRecipients({ envelope, sendEmail });
+
+  if (!bypassAdminRules) {
+    await assertAdminRulesAllowSend({ envelope, sender, recipientsToNotify, requestMetadata });
+  }
+
+  // The items are only pointed at the rendered copies inside the transaction
+  // that moves the envelope on from DRAFT, so a failure anywhere before that
+  // leaves every item on its original file rather than some on a rendered one
+  // which the next send would render onto again.
+  let renderedEnvelopeItems: RenderedEnvelopeItem[] = [];
+
+  if (envelope.status === DocumentStatus.DRAFT && envelope.contents.length > 0) {
+    const images = await loadContentImages(envelope.contents);
+
+    const results = await pMap(
+      envelope.envelopeItems,
+      async (envelopeItem) =>
+        renderContentsIntoEnvelopeItem({
+          envelopeItemId: envelopeItem.id,
+          contents: envelope.contents.filter((content) => content.envelopeItemId === envelopeItem.id),
+          images,
+        }),
+      { concurrency: RENDER_CONTENTS_CONCURRENCY },
+    );
+
+    renderedEnvelopeItems = results.filter((result): result is RenderedEnvelopeItem => result !== null);
+  }
+
   const allRecipientsHaveNoActionToTake = envelope.recipients.every(
     (recipient) => recipient.role === RecipientRole.CC || recipient.signingStatus === SigningStatus.SIGNED,
   );
 
   if (allRecipientsHaveNoActionToTake) {
+    // Nobody is left to act, so the send transaction below is skipped and the
+    // rendered items have to be committed here before sealing.
+    if (envelope.status === DocumentStatus.DRAFT) {
+      await prisma.$transaction(async (tx) => {
+        await commitRenderedEnvelopeItems(tx, {
+          envelopeId: envelope.id,
+          contents: envelope.contents,
+          renderedEnvelopeItems,
+        });
+
+        await tx.envelope.update({
+          where: {
+            id: envelope.id,
+          },
+          data: {
+            status: DocumentStatus.PENDING,
+          },
+        });
+      });
+    }
+
     await jobs.triggerJob({
       name: 'internal.seal-document',
       payload: {
@@ -249,11 +370,20 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
   if (isTspEnvelope(envelope) && envelope.status === DocumentStatus.DRAFT) {
     await materializeTspAnchorsForEnvelope({
       envelopeId: envelope.id,
+      documentDataOverrides: Object.fromEntries(
+        renderedEnvelopeItems.map((item) => [item.envelopeItemId, item.documentData]),
+      ),
     });
   }
 
   const updatedEnvelope = await prisma.$transaction(async (tx) => {
     if (envelope.status === DocumentStatus.DRAFT) {
+      await commitRenderedEnvelopeItems(tx, {
+        envelopeId: envelope.id,
+        contents: envelope.contents,
+        renderedEnvelopeItems,
+      });
+
       await tx.documentAuditLog.create({
         data: createDocumentAuditLogData({
           type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_SENT,
@@ -332,32 +462,19 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
     });
   });
 
-  const isRecipientSigningRequestEmailEnabled = extractDerivedDocumentEmailSettings(
-    envelope.documentMeta,
-  ).recipientSigningRequest;
-
-  // Only send email if one of the following is true:
-  // - It is explicitly set
-  // - The email is enabled for signing requests AND sendEmail is undefined
-  if (sendEmail || (isRecipientSigningRequestEmailEnabled && sendEmail === undefined)) {
-    await Promise.all(
-      recipientsToNotify.map(async (recipient) => {
-        if (recipient.sendStatus === SendStatus.SENT || recipient.role === RecipientRole.CC) {
-          return;
-        }
-
-        await jobs.triggerJob({
-          name: 'send.signing.requested.email',
-          payload: {
-            userId,
-            documentId: legacyDocumentId,
-            recipientId: recipient.id,
-            requestMetadata: requestMetadata?.requestMetadata,
-          },
-        });
-      }),
-    );
-  }
+  await Promise.all(
+    recipientsToNotify.map(async (recipient) => {
+      await jobs.triggerJob({
+        name: 'send.signing.requested.email',
+        payload: {
+          userId,
+          documentId: legacyDocumentId,
+          recipientId: recipient.id,
+          requestMetadata: requestMetadata?.requestMetadata,
+        },
+      });
+    }),
+  );
 
   await triggerWebhook({
     event: WebhookTriggerEvents.DOCUMENT_SENT,
@@ -367,6 +484,90 @@ export const sendDocument = async ({ id, userId, teamId, sendEmail, requestMetad
   });
 
   return updatedEnvelope;
+};
+
+type SigningRequestRecipient = Pick<Recipient, 'role' | 'signingOrder' | 'signingStatus' | 'sendStatus'>;
+
+type GetSigningRequestRecipientsOptions<T extends SigningRequestRecipient> = {
+  envelope: Pick<Envelope, 'signatureLevel'> & {
+    recipients: T[];
+    documentMeta: Pick<DocumentMeta, 'signingOrder' | 'emailSettings' | 'distributionMethod'> | null;
+  };
+  sendEmail?: boolean;
+};
+
+/**
+ * The recipients `sendDocument` emails a signing request to: those in the active signing step who
+ * haven't been sent one. Empty when signing request emails are off.
+ */
+export const getSigningRequestRecipients = <T extends SigningRequestRecipient>({
+  envelope,
+  sendEmail,
+}: GetSigningRequestRecipientsOptions<T>) => {
+  const isRecipientSigningRequestEmailEnabled = extractDerivedDocumentEmailSettings(
+    envelope.documentMeta,
+  ).recipientSigningRequest;
+
+  // Only send email if one of the following is true:
+  // - It is explicitly set
+  // - The email is enabled for signing requests AND sendEmail is undefined
+  const shouldSendEmails = sendEmail || (isRecipientSigningRequestEmailEnabled && sendEmail === undefined);
+
+  if (!shouldSendEmails) {
+    return [];
+  }
+
+  const recipientsInActiveStep =
+    envelope.documentMeta?.signingOrder === DocumentSigningOrder.SEQUENTIAL
+      ? getRecipientsInActiveSigningStep(envelope.recipients, {
+          strictlySequential: isTspEnvelope(envelope),
+        })
+      : envelope.recipients;
+
+  return recipientsInActiveStep.filter(
+    (recipient) => recipient.sendStatus !== SendStatus.SENT && recipient.role !== RecipientRole.CC,
+  );
+};
+
+type AssertAdminRulesAllowSendOptions = {
+  envelope: AdminRuleEventEnvelope;
+  sender: AdminRuleEventUser;
+  recipientsToNotify: Pick<Recipient, 'email'>[];
+  requestMetadata: ApiRequestMetadata;
+};
+
+/**
+ * Runs the "Document sent" rules, then the "Email sent" rules for the signing requests about to go
+ * out, and throws `ADMIN_RULE_BLOCKED` if either blocks. A rule that turns off the organisation's
+ * emails needs no handling here: the signing email jobs check that setting when they run.
+ */
+export const assertAdminRulesAllowSend = async ({
+  envelope,
+  sender,
+  recipientsToNotify,
+  requestMetadata,
+}: AssertAdminRulesAllowSendOptions) => {
+  const adminRuleEngine = new AdminRuleEngine({
+    requestMetadata: requestMetadata.requestMetadata,
+    requestSource: requestMetadata.source,
+  });
+
+  await adminRuleEngine.runAndAssert({ trigger: 'DOCUMENT_SENT', envelope, sender });
+
+  // Recipients without an email address aren't emailed, so the "Email sent" rules leave them out.
+  const recipientsToEmail = recipientsToNotify.filter((recipient) => isRecipientEmailValidForSending(recipient));
+
+  if (recipientsToEmail.length === 0) {
+    return;
+  }
+
+  await adminRuleEngine.runAndAssert({
+    trigger: 'EMAIL_SENT',
+    envelope,
+    sender,
+    emailType: 'signing_request',
+    recipients: recipientsToEmail,
+  });
 };
 
 const injectFormValuesIntoDocument = async (
@@ -387,7 +588,7 @@ const injectFormValuesIntoDocument = async (
     fileName = `${envelope.title}.pdf`;
   }
 
-  const newDocumentData = await putNormalizedPdfFileServerSide({
+  const { documentData: newDocumentData } = await putNormalizedPdfFileServerSide({
     name: fileName,
     type: 'application/pdf',
     arrayBuffer: async () => Promise.resolve(prefilled),

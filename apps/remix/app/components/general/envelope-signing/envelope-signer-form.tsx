@@ -34,7 +34,7 @@ export default function EnvelopeSignerForm({ hideSignature = false }: EnvelopeSi
     setSelectedAssistantRecipientId,
   } = useRequiredEnvelopeSigningContext();
 
-  const { isNameLocked, isEmailLocked } = useEmbedSigningContext() || {};
+  const { isNameLocked, isEmailLocked, onSignatureChanged } = useEmbedSigningContext() || {};
 
   const hasSignatureField = useMemo(() => {
     return recipientFields.some((field) => isSignatureFieldType(field.type));
@@ -125,7 +125,10 @@ export default function EnvelopeSignerForm({ hideSignature = false }: EnvelopeSi
               disabled={isSubmitting}
               fullName={fullName}
               value={signature ?? ''}
-              onChange={(v) => setSignature(v ?? '')}
+              onChange={(v) => {
+                setSignature(v ?? '');
+                onSignatureChanged?.(v ?? null);
+              }}
               typedSignatureEnabled={envelope.documentMeta.typedSignatureEnabled}
               uploadSignatureEnabled={envelope.documentMeta.uploadSignatureEnabled}
               drawSignatureEnabled={envelope.documentMeta.drawSignatureEnabled}

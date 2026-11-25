@@ -1,3 +1,4 @@
+import { AdminRuleEngine } from '@documenso/ee/server-only/admin-rules/admin-rule-engine';
 import DocumentReminderEmailTemplate from '@documenso/email/templates/document-reminder';
 import { prisma } from '@documenso/prisma';
 import { msg } from '@lingui/core/macro';
@@ -26,6 +27,7 @@ import { mapEnvelopeToWebhookDocumentPayload, ZWebhookDocumentSchema } from '../
 import { createDocumentAuditLogData } from '../../../utils/document-audit-logs';
 import { renderCustomEmailTemplate } from '../../../utils/render-custom-email-template';
 import { renderEmailWithI18N } from '../../../utils/render-email-with-i18n';
+import { shouldShowNewAccountWarning } from '../../../utils/sender-trust';
 import type { JobRunIO } from '../../client/_internal/job';
 import type { TProcessSigningReminderJobDefinition } from './process-signing-reminder';
 
@@ -67,10 +69,21 @@ export const run = async ({ payload, io }: { payload: TProcessSigningReminderJob
       envelope: {
         include: {
           documentMeta: true,
-          user: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              createdAt: true,
+              twoFactorEnabled: true,
+              disabled: true,
+            },
+          },
           recipients: true,
           team: {
             select: {
+              id: true,
+              url: true,
               name: true,
             },
           },
@@ -106,6 +119,7 @@ export const run = async ({ payload, io }: { payload: TProcessSigningReminderJob
     branding,
     emailLanguage,
     organisationType,
+    organisationName,
     senderEmail,
     replyToEmail,
     organisationId,
@@ -125,6 +139,36 @@ export const run = async ({ payload, io }: { payload: TProcessSigningReminderJob
   // has email sending disabled.
   if (envelope.user.disabled || emailsDisabled) {
     io.logger.info(`Envelope ${envelope.id} skipping reminder: owner disabled or organisation emails disabled`);
+    return;
+  }
+
+  // Reminders go through the "Email sent" rules, like a manual resend, built from what's already
+  // loaded so they cost no extra query. A blocked reminder ends the recipient's automatic reminders:
+  // the claim above cleared `nextReminderAt`, and returning here keeps it cleared. So does a rule that
+  // turns off the organisation's emails, as if they were already off.
+  const adminRuleEngine = new AdminRuleEngine();
+
+  const { isBlocked, hasDisabledEmails } = await adminRuleEngine.run({
+    trigger: 'EMAIL_SENT',
+    envelope: {
+      ...envelope,
+      team: {
+        ...envelope.team,
+        organisation: {
+          id: organisationId,
+          type: organisationType,
+          name: organisationName,
+          organisationClaim: claims,
+        },
+      },
+    },
+    sender: envelope.user,
+    emailType: 'reminder',
+    recipients: [recipient],
+  });
+
+  if (isBlocked || hasDisabledEmails) {
+    io.logger.info(`Envelope ${envelope.id} ending reminders for recipient ${recipient.id}: stopped by an admin rule`);
     return;
   }
 
@@ -185,6 +229,13 @@ export const run = async ({ payload, io }: { payload: TProcessSigningReminderJob
       `Sending signing reminder for envelope ${envelope.id} to recipient ${recipient.id} (${recipient.email})`,
     );
 
+    const showNewAccountWarning =
+      recipient.email !== envelope.user.email &&
+      shouldShowNewAccountWarning({
+        userCreatedAt: envelope.user.createdAt,
+        organisationClaim: claims,
+      });
+
     const template = createElement(DocumentReminderEmailTemplate, {
       recipientName: recipient.name,
       documentName: envelope.title,
@@ -193,6 +244,7 @@ export const run = async ({ payload, io }: { payload: TProcessSigningReminderJob
       customBody: emailMessage,
       role: recipient.role,
       reportUrl,
+      newAccountWarningSenderEmail: showNewAccountWarning ? envelope.user.email : undefined,
     });
 
     const [html, text] = await Promise.all([

@@ -1,3 +1,4 @@
+import { AdminRuleEngine } from '@documenso/ee/server-only/admin-rules/admin-rule-engine';
 import { DocumentInviteEmailTemplate } from '@documenso/email/templates/document-invite';
 import { resolveExpiresAt } from '@documenso/lib/constants/envelope-expiration';
 import { RECIPIENT_ROLE_TO_EMAIL_TYPE, RECIPIENT_ROLES_DESCRIPTION } from '@documenso/lib/constants/recipient-roles';
@@ -18,7 +19,6 @@ import {
   WebhookTriggerEvents,
 } from '@prisma/client';
 import { createElement } from 'react';
-
 import { getI18nInstance } from '../../client-only/providers/i18n-server';
 import { NEXT_PUBLIC_WEBAPP_URL } from '../../constants/app';
 import { extractDerivedDocumentEmailSettings } from '../../types/document-email';
@@ -27,6 +27,7 @@ import { isDocumentCompleted } from '../../utils/document';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { isRecipientEmailValidForSending } from '../../utils/recipients';
 import { renderEmailWithI18N } from '../../utils/render-email-with-i18n';
+import { shouldShowNewAccountWarning } from '../../utils/sender-trust';
 import { buildEnvelopeEmailHeaders } from '../email/build-envelope-email-headers';
 import { getEmailContext } from '../email/get-email-context';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
@@ -53,6 +54,8 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
       email: true,
       name: true,
       disabled: true,
+      createdAt: true,
+      twoFactorEnabled: true,
     },
   });
 
@@ -74,13 +77,19 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
       documentMeta: true,
       team: {
         select: {
+          id: true,
+          url: true,
           teamEmail: true,
           name: true,
           organisation: {
             select: {
+              id: true,
+              type: true,
+              name: true,
               organisationClaim: {
                 select: {
                   recipientCount: true,
+                  originalSubscriptionClaimId: true,
                 },
               },
             },
@@ -128,6 +137,45 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
       recipient.role !== RecipientRole.CC,
   );
 
+  const isRecipientSigningRequestEmailEnabled = extractDerivedDocumentEmailSettings(
+    envelope.documentMeta,
+  ).recipientSigningRequest;
+
+  const emailContext = isRecipientSigningRequestEmailEnabled
+    ? await getEmailContext({
+        emailType: 'RECIPIENT',
+        source: {
+          type: 'team',
+          teamId: envelope.teamId,
+        },
+        meta: envelope.documentMeta,
+      })
+    : null;
+
+  // Don't resend any emails if signing request emails are off or the organisation has email sending disabled.
+  const shouldSendEmails = emailContext !== null && !user.disabled && !emailContext.emailsDisabled;
+
+  // Recipients without an email address aren't emailed, so the "Email sent" rules leave them out.
+  const validRecipients = recipientsToRemind.filter((recipient) => isRecipientEmailValidForSending(recipient));
+
+  const adminRuleEngine = new AdminRuleEngine({
+    requestMetadata: requestMetadata.requestMetadata,
+    requestSource: requestMetadata.source,
+  });
+
+  // Rules run before anything is written, so a blocked resend leaves the signing links, the
+  // reminder cycle and the email quota untouched.
+  const adminRuleResult =
+    shouldSendEmails && validRecipients.length > 0
+      ? await adminRuleEngine.runAndAssert({
+          trigger: 'EMAIL_SENT',
+          envelope,
+          sender: user,
+          emailType: 'reminder',
+          recipients: validRecipients,
+        })
+      : null;
+
   if (expiresAt && recipientsToRemind.length > 0) {
     await prisma.recipient.updateMany({
       where: {
@@ -158,37 +206,22 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
     ),
   );
 
-  const isRecipientSigningRequestEmailEnabled = extractDerivedDocumentEmailSettings(
-    envelope.documentMeta,
-  ).recipientSigningRequest;
-
-  if (!isRecipientSigningRequestEmailEnabled) {
+  // A rule that turns off the organisation's emails stops these emails too, as if they were already off.
+  if (!shouldSendEmails || adminRuleResult?.hasDisabledEmails) {
     return envelope;
   }
 
   const {
     branding,
     emailLanguage,
+    settings,
     organisationType,
     senderEmail,
     replyToEmail,
     organisationId,
     claims,
-    emailsDisabled,
     emailTransport,
-  } = await getEmailContext({
-    emailType: 'RECIPIENT',
-    source: {
-      type: 'team',
-      teamId: envelope.teamId,
-    },
-    meta: envelope.documentMeta,
-  });
-
-  // Don't resend any emails if the organisation has email sending disabled.
-  if (user.disabled || emailsDisabled) {
-    return envelope;
-  }
+  } = emailContext;
 
   // Assert that there is enough quota to send the emails.
   await assertOrganisationRatesAndLimits({
@@ -196,6 +229,11 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
     organisationClaim: claims,
     count: recipientsToRemind.length,
     type: 'email',
+  });
+
+  const isNewAccountSender = shouldShowNewAccountWarning({
+    userCreatedAt: user.createdAt,
+    organisationClaim: claims,
   });
 
   await Promise.all(
@@ -225,11 +263,16 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
 
       if (organisationType === OrganisationType.ORGANISATION) {
         emailSubject = i18n._(msg`Reminder: ${envelope.team.name} invited you to ${recipientActionVerb} a document`);
-        emailMessage =
-          envelope.documentMeta.message ||
-          i18n._(
-            msg`${user.name || user.email} on behalf of "${envelope.team.name}" has invited you to ${recipientActionVerb} the document "${envelope.title}".`,
+
+        if (!emailMessage) {
+          const inviterName = user.name || user.email;
+
+          emailMessage = i18n._(
+            settings.includeSenderDetails
+              ? msg`${inviterName} on behalf of "${envelope.team.name}" has invited you to ${recipientActionVerb} the document "${envelope.title}".`
+              : msg`${envelope.team.name} has invited you to ${recipientActionVerb} the document "${envelope.title}".`,
           );
+        }
       }
 
       const customEmailTemplate = {
@@ -256,7 +299,9 @@ export const resendDocument = async ({ id, userId, recipients, teamId, requestMe
         selfSigner,
         organisationType,
         teamName: envelope.team?.name,
+        includeSenderDetails: settings.includeSenderDetails,
         reportUrl,
+        newAccountWarningSenderEmail: isNewAccountSender && !selfSigner ? user.email : undefined,
       });
 
       const [html, text] = await Promise.all([

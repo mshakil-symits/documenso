@@ -7,6 +7,7 @@ import { createUserRoute } from './create-user';
 import { deleteDocumentRoute } from './delete-document';
 import { deleteOrganisationRoute } from './delete-organisation';
 import { deleteAdminOrganisationMemberRoute } from './delete-organisation-member';
+import { deleteRecipientRoute } from './delete-recipient';
 import { deleteSubscriptionClaimRoute } from './delete-subscription-claim';
 import { deleteAdminTeamMemberRoute } from './delete-team-member';
 import { deleteUserRoute } from './delete-user';
@@ -37,8 +38,18 @@ import { resealDocumentRoute } from './reseal-document';
 import { resetOrganisationMonthlyStatRoute } from './reset-organisation-monthly-stat';
 import { resetTwoFactorRoute } from './reset-two-factor-authentication';
 import { resyncLicenseRoute } from './resync-license';
+import { createAdminRuleRoute } from './rules/create-admin-rule';
+import { deleteAdminRuleRoute } from './rules/delete-admin-rule';
+import { findAdminRuleMatchesRoute } from './rules/find-admin-rule-matches';
+import { getAdminRuleRoute } from './rules/get-admin-rule';
+import { getAdminRulesRoute } from './rules/get-admin-rules';
+import { reorderAdminRulesRoute } from './rules/reorder-admin-rules';
+import { updateAdminRuleRoute } from './rules/update-admin-rule';
 import { swapOrganisationSubscriptionRoute } from './swap-organisation-subscription';
 import { syncOrganisationSubscriptionRoute } from './sync-organisation-subscription';
+import { createAdminTagRoute } from './tags/create-admin-tag';
+import { deleteAdminTagRoute } from './tags/delete-admin-tag';
+import { getAdminTagsRoute } from './tags/get-admin-tags';
 import { updateAdminOrganisationRoute } from './update-admin-organisation';
 import { updateOrganisationMemberRoleRoute } from './update-organisation-member-role';
 import { updateRecipientRoute } from './update-recipient';
@@ -89,6 +100,22 @@ export const adminRouter = router({
     resetTwoFactor: resetTwoFactorRoute,
     findTeams: findUserTeamsRoute,
   },
+  rule: {
+    get: getAdminRuleRoute,
+    getMany: getAdminRulesRoute,
+    create: createAdminRuleRoute,
+    update: updateAdminRuleRoute,
+    delete: deleteAdminRuleRoute,
+    reorder: reorderAdminRulesRoute,
+    matches: {
+      find: findAdminRuleMatchesRoute,
+    },
+  },
+  tag: {
+    getMany: getAdminTagsRoute,
+    create: createAdminTagRoute,
+    delete: deleteAdminTagRoute,
+  },
   document: {
     find: findDocumentsRoute,
     findUnsealed: findUnsealedDocumentsRoute,
@@ -100,6 +127,7 @@ export const adminRouter = router({
   },
   recipient: {
     update: updateRecipientRoute,
+    delete: deleteRecipientRoute,
   },
   emailDomain: {
     find: findEmailDomainsRoute,
