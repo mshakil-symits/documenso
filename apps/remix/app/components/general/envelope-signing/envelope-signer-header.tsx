@@ -1,4 +1,5 @@
 import { mapSecondaryIdToDocumentId } from '@documenso/lib/utils/envelope';
+import { cn } from '@documenso/ui/lib/utils';
 import { Badge } from '@documenso/ui/primitives/badge';
 import { Button } from '@documenso/ui/primitives/button';
 import {
@@ -10,16 +11,16 @@ import {
 import { Separator } from '@documenso/ui/primitives/separator';
 import { Plural, Trans } from '@lingui/react/macro';
 import { EnvelopeType, RecipientRole } from '@prisma/client';
-import { BanIcon, DownloadCloudIcon } from 'lucide-react';
+import { BanIcon, DownloadCloudIcon, PaperclipIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { match } from 'ts-pattern';
 
 import { EnvelopeDownloadDialog } from '~/components/dialogs/envelope-download-dialog';
 import { useEmbedSigningContext } from '~/components/embed/embed-signing-context';
-import { BrandingLogo } from '~/components/general/branding-logo';
+import { EngyjLogo, EngyjLogoIcon } from '~/components/general/engyj-logo';
 import { PublicLegalLinksDropdownMenuItems } from '~/components/general/public-legal-links';
 
-import { BrandingLogoIcon } from '../branding-logo-icon';
+import { DocumentSigningAttachmentsPopover } from '../document-signing/document-signing-attachments-popover';
 import { DocumentSigningRejectDialog } from '../document-signing/document-signing-reject-dialog';
 import { useRequiredEnvelopeSigningContext } from '../document-signing/envelope-signing-provider';
 import { EnvelopeSignerCompleteDialog } from './envelope-signing-complete-dialog';
@@ -43,8 +44,8 @@ export const EnvelopeSignerHeader = () => {
             />
           ) : (
             <Link to="/" className="flex-shrink-0">
-              <BrandingLogo className="hidden h-6 w-auto md:block" />
-              <BrandingLogoIcon className="h-6 w-auto md:hidden" />
+              <EngyjLogo className="hidden h-7 md:block" />
+              <EngyjLogoIcon className="h-7 md:hidden" />
             </Link>
           ))}
 
@@ -68,8 +69,8 @@ export const EnvelopeSignerHeader = () => {
         </div>
       </div>
 
-      {/* Right side - Desktop content */}
-      <div className="hidden items-center space-x-2 lg:flex">
+      {/* Right side - Desktop content. Outside of embeds the next/complete controls live in the bottom bar. */}
+      <div className={cn('hidden items-center space-x-2', isEmbedSigning && 'lg:flex')}>
         <p className="mr-2 flex-shrink-0 text-muted-foreground text-sm">
           <Plural one="1 Field Remaining" other="# Fields Remaining" value={recipientFieldsRemaining.length} />
         </p>
@@ -77,8 +78,8 @@ export const EnvelopeSignerHeader = () => {
         <EnvelopeSignerCompleteDialog />
       </div>
 
-      {/* Mobile Actions button */}
-      <div className="flex-shrink-0 lg:hidden">
+      {/* Actions menu. Shown on every screen size outside of embeds since the side panel is gone. */}
+      <div className={cn('flex-shrink-0', isEmbedSigning && 'lg:hidden')}>
         <MobileDropdownMenu />
       </div>
     </nav>
@@ -86,7 +87,7 @@ export const EnvelopeSignerHeader = () => {
 };
 
 const MobileDropdownMenu = () => {
-  const { envelope, recipient } = useRequiredEnvelopeSigningContext();
+  const { envelope, recipient, isDirectTemplate } = useRequiredEnvelopeSigningContext();
 
   const embedSigningContext = useEmbedSigningContext();
 
@@ -102,6 +103,21 @@ const MobileDropdownMenu = () => {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
+        {!isDirectTemplate && (
+          <DocumentSigningAttachmentsPopover
+            envelopeId={envelope.id}
+            token={recipient.token}
+            trigger={
+              <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                <div>
+                  <PaperclipIcon className="mr-2 h-4 w-4" />
+                  <Trans>Attachments</Trans>
+                </div>
+              </DropdownMenuItem>
+            }
+          />
+        )}
+
         {allowDownloadPDF !== false && (
           <EnvelopeDownloadDialog
             envelopeId={envelope.id}

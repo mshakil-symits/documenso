@@ -37,8 +37,6 @@ import { Clock8 } from 'lucide-react';
 import { Link, redirect } from 'react-router';
 import { getOptionalLoaderContext } from 'server/utils/get-loader-session';
 import { match } from 'ts-pattern';
-
-import { Header as AuthenticatedHeader } from '~/components/general/app-header';
 import { CscRecipientBlockedPage } from '~/components/general/document-signing/csc-recipient-blocked-page';
 import { CscRecipientSigningInProgressPage } from '~/components/general/document-signing/csc-recipient-signing-in-progress-page';
 import { DocumentSigningAuthPageView } from '~/components/general/document-signing/document-signing-auth-page';
@@ -501,9 +499,7 @@ const SigningPageV1 = ({ data }: { data: Awaited<ReturnType<typeof handleV1Loade
       drawSignatureEnabled={document.documentMeta?.drawSignatureEnabled}
     >
       <DocumentSigningAuthProvider documentAuthOptions={document.authOptions} recipient={recipient} user={user}>
-        {sessionData?.user && <AuthenticatedHeader />}
-
-        <div className="mt-8 mb-8 px-4 md:mt-12 md:mb-12 md:px-8">
+        <div>
           <DocumentSigningPageViewV1
             recipient={recipientWithFields}
             document={document}

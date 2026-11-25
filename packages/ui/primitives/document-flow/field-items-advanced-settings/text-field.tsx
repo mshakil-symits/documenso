@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@documenso/ui/primitives/switch';
 import { Textarea } from '@documenso/ui/primitives/textarea';
 import { Trans, useLingui } from '@lingui/react/macro';
+import { type TextInputKindKey, TextInputKindSettings } from './text-input-kind-settings';
 
 type TextFieldAdvancedSettingsProps = {
   fieldState: TextFieldMeta;
@@ -28,6 +29,7 @@ export const TextFieldAdvancedSettings = ({
     const required = field === 'required' ? Boolean(value) : Boolean(fieldState.required);
 
     const textErrors = validateTextField(text, {
+      ...fieldState,
       characterLimit: Number(limit),
       readOnly,
       required,
@@ -39,8 +41,17 @@ export const TextFieldAdvancedSettings = ({
     handleFieldChange(field, value);
   };
 
+  const handleKindChange = (key: TextInputKindKey, value: string) => {
+    handleFieldChange(key, value);
+    handleErrors(
+      validateTextField(fieldState.text ?? '', { ...fieldState, [key]: value, type: 'text' } as TextFieldMeta),
+    );
+  };
+
   return (
     <div className="flex flex-col gap-4">
+      <TextInputKindSettings meta={fieldState} onChange={handleKindChange} />
+
       <div>
         <Label>
           <Trans>Label</Trans>

@@ -6,6 +6,7 @@ import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-reques
 import { createDocumentAuditLogData, diffFieldChanges } from '@documenso/lib/utils/document-audit-logs';
 import { prisma } from '@documenso/prisma';
 import { EnvelopeType, type FieldType } from '@prisma/client';
+import { assertTextFieldMetaUsable } from '../../advanced-fields-validation/assert-text-meta';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
@@ -95,6 +96,8 @@ export const updateEnvelopeFields = async ({
         message: 'Cannot modify a field where the recipient has already interacted with the document',
       });
     }
+
+    assertTextFieldMetaUsable(field.fieldMeta);
 
     const fieldType = field.type || originalField.type;
     const isFieldTypeChanged = fieldType !== originalField.type;

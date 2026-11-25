@@ -1,4 +1,5 @@
 import type { TTextFieldMeta as TextFieldMeta } from '../types/field-meta';
+import { isSafeRegex, normaliseTextValue, withoutInvisibleCharacters } from './text-kinds';
 
 export const validateTextField = (
   value: string,
@@ -9,12 +10,30 @@ export const validateTextField = (
 
   const { characterLimit, readOnly, required, fontSize } = fieldMeta;
 
-  if (required && !value && isSigningPage) {
+  if (required && !withoutInvisibleCharacters(value).trim() && isSigningPage) {
     errors.push('Value is required');
   }
 
   if (characterLimit !== undefined && characterLimit > 0 && value.length > characterLimit) {
     errors.push(`Value length (${value.length}) exceeds the character limit (${characterLimit})`);
+  }
+
+  const visibleLength = withoutInvisibleCharacters(value).length;
+
+  if (fieldMeta.minLength && visibleLength > 0 && visibleLength < fieldMeta.minLength) {
+    errors.push(`Value length (${visibleLength}) is below the minimum length (${fieldMeta.minLength})`);
+  }
+
+  if (fieldMeta.pattern && !isSafeRegex(fieldMeta.pattern)) {
+    errors.push('The pattern is invalid or too complex');
+  }
+
+  if (value.length > 0) {
+    const normalised = normaliseTextValue(value, fieldMeta);
+
+    if (!normalised.ok) {
+      errors.push(normalised.error);
+    }
   }
 
   if (readOnly && value.length < 1) {

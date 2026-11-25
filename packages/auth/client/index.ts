@@ -1,5 +1,6 @@
-import { formatPath, NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
+import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { AppError } from '@documenso/lib/errors/app-error';
+import { resolveSignOutRedirect } from '@documenso/lib/utils/sign-out-redirect';
 import type { ClientResponse, InferRequestType } from 'hono/client';
 import { hc } from 'hono/client';
 import superjson from 'superjson';
@@ -56,7 +57,7 @@ export class AuthClient {
   public async signOut({ redirectPath }: { redirectPath?: string } = {}) {
     await this.client.signout.$post();
 
-    window.location.href = redirectPath ?? formatPath('/signin');
+    window.location.href = resolveSignOutRedirect(redirectPath);
   }
 
   public async signOutAllSessions() {

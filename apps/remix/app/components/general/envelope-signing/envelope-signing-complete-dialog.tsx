@@ -94,11 +94,8 @@ export const EnvelopeSignerCompleteDialog = () => {
       return;
     }
 
-    if (envelope.documentMeta.redirectUrl) {
-      window.location.href = envelope.documentMeta.redirectUrl;
-    } else {
-      window.location.href = `/sign/${recipient.token}/complete`;
-    }
+    // Always show the completion screen. The redirect URL is offered there as the home button.
+    window.location.href = `/sign/${recipient.token}/complete`;
   };
 
   // Do NOT re-invoke `completeDocumentWithToken` here: for TSP envelopes it
@@ -313,8 +310,6 @@ export const EnvelopeSignerCompleteDialog = () => {
         nextSigner,
       });
 
-      const redirectUrl = envelope.documentMeta.redirectUrl;
-
       if (onDocumentCompleted) {
         await navigate({
           pathname: `/embed/sign/${token}`,
@@ -325,11 +320,7 @@ export const EnvelopeSignerCompleteDialog = () => {
         return;
       }
 
-      if (redirectUrl) {
-        window.location.href = redirectUrl;
-      } else {
-        window.location.href = `/sign/${token}/complete`;
-      }
+      window.location.href = `/sign/${token}/complete`;
     } catch (err) {
       console.log('err', err);
 

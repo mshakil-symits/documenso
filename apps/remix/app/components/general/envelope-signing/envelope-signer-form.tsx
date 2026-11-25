@@ -11,7 +11,15 @@ import { useEmbedSigningContext } from '~/components/embed/embed-signing-context
 
 import { useRequiredEnvelopeSigningContext } from '../document-signing/envelope-signing-provider';
 
-export default function EnvelopeSignerForm() {
+export type EnvelopeSignerFormProps = {
+  /**
+   * Whether to render the signature box. When hidden the signer is prompted for their
+   * signature in a modal once they reach a signature field.
+   */
+  hideSignature?: boolean;
+};
+
+export default function EnvelopeSignerForm({ hideSignature = false }: EnvelopeSignerFormProps = {}) {
   const {
     fullName,
     signature,
@@ -106,7 +114,7 @@ export default function EnvelopeSignerForm() {
           />
         </div>
 
-        {hasSignatureField && (
+        {hasSignatureField && !hideSignature && (
           <div>
             <Label htmlFor="Signature">
               <Trans>Signature</Trans>

@@ -1,4 +1,5 @@
 // https://github.com/Hopding/pdf-lib/issues/20#issuecomment-412852821
+
 import type { PDFDocument, PDFFont, PDFTextField } from '@cantoo/pdf-lib';
 import { degrees, RotationTypes, radiansToDegrees, rgb, setFontAndSize, TextAlignment } from '@cantoo/pdf-lib';
 import {
@@ -13,7 +14,6 @@ import type { FieldWithSignature } from '@documenso/prisma/types/field-with-sign
 import fontkit from '@pdf-lib/fontkit';
 import { FieldType } from '@prisma/client';
 import { match, P } from 'ts-pattern';
-
 import { NEXT_PRIVATE_INTERNAL_WEBAPP_URL } from '../../constants/app';
 import {
   ZCheckboxFieldMeta,
@@ -25,6 +25,7 @@ import {
   ZRadioFieldMeta,
   ZTextFieldMeta,
 } from '../../types/field-meta';
+import { formatTextForDisplay } from '../../utils/field-signing/text-field';
 import { getPageSize } from './get-page-size';
 
 export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSignature) => {
@@ -365,8 +366,14 @@ export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSigna
       const customFontSize = meta?.success && meta.data.fontSize ? meta.data.fontSize : null;
       const textAlign = meta?.success && meta.data.textAlign ? meta.data.textAlign : 'left';
 
+      // A typed TEXT field prints as people read it (a phone in international format); the stored value is unchanged.
+      const printedText =
+        field.type === FieldType.TEXT && meta?.success
+          ? formatTextForDisplay(field.customText, ZTextFieldMeta.parse(meta.data))
+          : field.customText;
+
       let fontSize = customFontSize || maxFontSize;
-      const textWidth = font.widthOfTextAtSize(field.customText, fontSize);
+      const textWidth = font.widthOfTextAtSize(printedText, fontSize);
       const textHeight = font.heightAtSize(fontSize);
 
       // Scale font only if no custom font and height exceeds field height.
@@ -381,7 +388,7 @@ export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSigna
        * - True = text will overflow downwards.
        * - False = text will overflow sideways.
        */
-      const isMultiline = field.type === FieldType.TEXT && (textWidth > fieldWidth || field.customText.includes('\n'));
+      const isMultiline = field.type === FieldType.TEXT && (textWidth > fieldWidth || printedText.includes('\n'));
 
       // Add padding similar to web display (roughly 0.5rem equivalent in PDF units)
       const padding = 8;
@@ -404,7 +411,7 @@ export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSigna
       let adjustedFieldX = textFieldBoxX;
       let adjustedFieldY = textFieldBoxY;
 
-      let textToInsert = field.customText;
+      let textToInsert = printedText;
 
       // The padding to use when fields go off the page.
       const pagePadding = 4;

@@ -7,6 +7,7 @@ import {
   type TTextFieldMeta as TextFieldMeta,
   ZTextFieldMeta,
 } from '@documenso/lib/types/field-meta';
+import { TextInputKindSettings } from '@documenso/ui/primitives/document-flow/field-items-advanced-settings/text-input-kind-settings';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@documenso/ui/primitives/form/form';
 import { Input } from '@documenso/ui/primitives/input';
 import { Textarea } from '@documenso/ui/primitives/textarea';
@@ -38,6 +39,14 @@ const ZTextFieldFormSchema = ZTextFieldMeta.pick({
   verticalAlign: true,
   required: true,
   readOnly: true,
+  inputKind: true,
+  minLength: true,
+  pattern: true,
+  patternMessage: true,
+  defaultCountry: true,
+  dateFormat: true,
+  minDate: true,
+  maxDate: true,
 }).refine(
   (data) => {
     // A read-only field must have text
@@ -79,6 +88,14 @@ export const EditorFieldTextForm = ({
       verticalAlign: value.verticalAlign ?? FIELD_DEFAULT_GENERIC_VERTICAL_ALIGN,
       required: value.required || false,
       readOnly: value.readOnly || false,
+      inputKind: value.inputKind,
+      minLength: value.minLength,
+      pattern: value.pattern,
+      patternMessage: value.patternMessage,
+      defaultCountry: value.defaultCountry,
+      dateFormat: value.dateFormat,
+      minDate: value.minDate,
+      maxDate: value.maxDate,
     },
   });
 
@@ -97,7 +114,9 @@ export const EditorFieldTextForm = ({
     }
 
     if (validatedFormValues.success) {
+      // `...value` keeps the meta this form has no control for (allowedCountries, multiline), so editing never drops it.
       onValueChange({
+        ...value,
         type: 'text',
         ...validatedFormValues.data,
       });
@@ -108,6 +127,21 @@ export const EditorFieldTextForm = ({
     <Form {...form}>
       <form onSubmit={(e) => e.preventDefault()}>
         <fieldset className="flex flex-col gap-2">
+          <TextInputKindSettings
+            meta={{
+              inputKind: formValues.inputKind,
+              minLength: formValues.minLength,
+              pattern: formValues.pattern,
+              patternMessage: formValues.patternMessage,
+              defaultCountry: formValues.defaultCountry,
+              dateFormat: formValues.dateFormat,
+              minDate: formValues.minDate,
+              maxDate: formValues.maxDate,
+            }}
+            onChange={(key, fieldValue) =>
+              form.setValue(key, (fieldValue === '' ? undefined : fieldValue) as never, { shouldDirty: true })
+            }
+          />
           <EditorGenericFontSizeField className="w-full" formControl={form.control} />
 
           <div className="flex w-full flex-row gap-x-4">

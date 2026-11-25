@@ -31,7 +31,6 @@ import { SignFieldTextDialog } from '~/components/dialogs/sign-field-text-dialog
 import { useEmbedSigningContext } from '~/components/embed/embed-signing-context';
 import { EnvelopeSignerPageRenderer } from '~/components/general/envelope-signing/envelope-signer-page-renderer';
 import { EnvelopePdfViewer } from '~/components/general/pdf-viewer/envelope-pdf-viewer';
-import { PublicLegalLinks } from '~/components/general/public-legal-links';
 
 import { BrandingLogo } from '../branding-logo';
 import { DocumentSigningAttachmentsPopover } from '../document-signing/document-signing-attachments-popover';
@@ -96,150 +95,150 @@ export const DocumentSigningPageViewV2 = () => {
 
       {/* Main Content Area */}
       <div className="flex h-[calc(100vh-4rem)] w-screen">
-        {/* Left Section - Step Navigation */}
-        <div
-          className={cn(
-            'embed--DocumentWidgetContainer hidden flex-shrink-0 flex-col border-border border-r bg-background transition-[width] duration-300 lg:flex',
-            isSidebarCollapsed ? 'w-12' : 'w-80',
-          )}
-        >
-          {isSidebarCollapsed && (
-            <div className="flex justify-center pt-4">
-              <Button
-                variant="ghost"
-                className="h-7 w-7 p-0"
-                aria-label={t`Expand sidebar`}
-                onClick={() => setIsSidebarCollapsed(false)}
-              >
-                <PanelLeftOpenIcon className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-
-          <div className={cn('flex flex-1 flex-col overflow-hidden py-4', isSidebarCollapsed && 'invisible w-0')}>
-            <div className="px-4">
-              <h3 className="flex items-end justify-between font-semibold text-foreground text-sm">
-                {match(recipient.role)
-                  .with(RecipientRole.VIEWER, () => <Trans>View Document</Trans>)
-                  .with(RecipientRole.SIGNER, () => <Trans>Sign Document</Trans>)
-                  .with(RecipientRole.APPROVER, () => <Trans>Approve Document</Trans>)
-                  .with(RecipientRole.ASSISTANT, () => <Trans>Assist Document</Trans>)
-                  .otherwise(() => null)}
-
-                <div className="ml-2 flex items-center gap-1">
-                  <span className="rounded border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
-                    <Plural
-                      value={recipientFieldsRemaining.length}
-                      one="1 Field Remaining"
-                      other="# Fields Remaining"
-                    />
-                  </span>
-
-                  <Button
-                    variant="ghost"
-                    className="h-7 w-7 p-0"
-                    aria-label={t`Collapse sidebar`}
-                    onClick={() => setIsSidebarCollapsed(true)}
-                  >
-                    <PanelLeftCloseIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </h3>
-
-              <div className="relative my-4 h-[4px] rounded-md bg-muted">
-                <motion.div
-                  layout="size"
-                  layoutId="document-flow-container-step"
-                  className="absolute inset-y-0 left-0 bg-primary"
-                  style={{
-                    width: `${requiredRecipientFields.length === 0 ? 100 : 100 - (100 / requiredRecipientFields.length) * (recipientFieldsRemaining.length ?? 0)}%`,
-                  }}
-                />
-              </div>
-
-              <div className="embed--DocumentWidgetContent mt-6 space-y-3">
-                <EnvelopeSignerForm />
-              </div>
-            </div>
-
-            <Separator className="my-6" />
-
-            {/* Quick Actions. */}
-            {!isDirectTemplate && (
-              <div className="embed--Actions space-y-3 px-4">
-                <h4 className="font-semibold text-foreground text-sm">
-                  <Trans>Actions</Trans>
-                </h4>
-
-                <DocumentSigningAttachmentsPopover
-                  envelopeId={envelope.id}
-                  token={recipient.token}
-                  trigger={
-                    <Button variant="ghost" size="sm" className="w-full justify-start">
-                      <PaperclipIcon className="mr-2 h-4 w-4" />
-                      <Trans>Attachments</Trans>
-                    </Button>
-                  }
-                />
-
-                {allowDownloadPDF && (
-                  <EnvelopeDownloadDialog
-                    envelopeId={envelope.id}
-                    envelopeStatus={envelope.status}
-                    envelopeItems={envelope.envelopeItems}
-                    token={recipient.token}
-                    trigger={
-                      <Button variant="ghost" size="sm" className="w-full justify-start">
-                        <DownloadCloudIcon className="mr-2 h-4 w-4" />
-                        <Trans>Download PDF</Trans>
-                      </Button>
-                    }
-                  />
-                )}
-
-                {envelope.type === EnvelopeType.DOCUMENT && allowDocumentRejection && (
-                  <DocumentSigningRejectDialog
-                    documentId={mapSecondaryIdToDocumentId(envelope.secondaryId)}
-                    token={recipient.token}
-                    onRejected={
-                      onDocumentRejected &&
-                      ((reason) =>
-                        onDocumentRejected({
-                          token: recipient.token,
-                          documentId: mapSecondaryIdToDocumentId(envelope.secondaryId),
-                          envelopeId: envelope.id,
-                          recipientId: recipient.id,
-                          reason,
-                        }))
-                    }
-                    trigger={
-                      <Button variant="ghost" size="sm" className="w-full justify-start hover:text-destructive">
-                        <BanIcon className="mr-2 h-4 w-4" />
-                        <Trans>Reject Document</Trans>
-                      </Button>
-                    }
-                  />
-                )}
+        {/* Left Section - Step Navigation. Only used by embeds, regular signing is full screen. */}
+        {isEmbed && (
+          <div
+            className={cn(
+              'embed--DocumentWidgetContainer hidden flex-shrink-0 flex-col border-border border-r bg-background transition-[width] duration-300 lg:flex',
+              isSidebarCollapsed ? 'w-12' : 'w-80',
+            )}
+          >
+            {isSidebarCollapsed && (
+              <div className="flex justify-center pt-4">
+                <Button
+                  variant="ghost"
+                  className="h-7 w-7 p-0"
+                  aria-label={t`Expand sidebar`}
+                  onClick={() => setIsSidebarCollapsed(false)}
+                >
+                  <PanelLeftOpenIcon className="h-4 w-4" />
+                </Button>
               </div>
             )}
 
-            <div className="embed--DocumentWidgetFooter mt-auto">
-              {/* Footer of left sidebar. */}
-              {!isEmbed && (
-                <div className="px-4">
-                  <Button asChild variant="ghost" className="w-full justify-start">
-                    <Link to="/">
-                      <ArrowLeftIcon className="mr-2 h-4 w-4" />
-                      <Trans>Return</Trans>
-                    </Link>
-                  </Button>
+            <div className={cn('flex flex-1 flex-col overflow-hidden py-4', isSidebarCollapsed && 'invisible w-0')}>
+              <div className="px-4">
+                <h3 className="flex items-end justify-between font-semibold text-foreground text-sm">
+                  {match(recipient.role)
+                    .with(RecipientRole.VIEWER, () => <Trans>View Document</Trans>)
+                    .with(RecipientRole.SIGNER, () => <Trans>Sign Document</Trans>)
+                    .with(RecipientRole.APPROVER, () => <Trans>Approve Document</Trans>)
+                    .with(RecipientRole.ASSISTANT, () => <Trans>Assist Document</Trans>)
+                    .otherwise(() => null)}
+
+                  <div className="ml-2 flex items-center gap-1">
+                    <span className="rounded border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
+                      <Plural
+                        value={recipientFieldsRemaining.length}
+                        one="1 Field Remaining"
+                        other="# Fields Remaining"
+                      />
+                    </span>
+
+                    <Button
+                      variant="ghost"
+                      className="h-7 w-7 p-0"
+                      aria-label={t`Collapse sidebar`}
+                      onClick={() => setIsSidebarCollapsed(true)}
+                    >
+                      <PanelLeftCloseIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </h3>
+
+                <div className="relative my-4 h-[4px] rounded-md bg-muted">
+                  <motion.div
+                    layout="size"
+                    layoutId="document-flow-container-step"
+                    className="absolute inset-y-0 left-0 bg-primary"
+                    style={{
+                      width: `${requiredRecipientFields.length === 0 ? 100 : 100 - (100 / requiredRecipientFields.length) * (recipientFieldsRemaining.length ?? 0)}%`,
+                    }}
+                  />
+                </div>
+
+                <div className="embed--DocumentWidgetContent mt-6 space-y-3">
+                  <EnvelopeSignerForm />
+                </div>
+              </div>
+
+              <Separator className="my-6" />
+
+              {/* Quick Actions. */}
+              {!isDirectTemplate && (
+                <div className="embed--Actions space-y-3 px-4">
+                  <h4 className="font-semibold text-foreground text-sm">
+                    <Trans>Actions</Trans>
+                  </h4>
+
+                  <DocumentSigningAttachmentsPopover
+                    envelopeId={envelope.id}
+                    token={recipient.token}
+                    trigger={
+                      <Button variant="ghost" size="sm" className="w-full justify-start">
+                        <PaperclipIcon className="mr-2 h-4 w-4" />
+                        <Trans>Attachments</Trans>
+                      </Button>
+                    }
+                  />
+
+                  {allowDownloadPDF && (
+                    <EnvelopeDownloadDialog
+                      envelopeId={envelope.id}
+                      envelopeStatus={envelope.status}
+                      envelopeItems={envelope.envelopeItems}
+                      token={recipient.token}
+                      trigger={
+                        <Button variant="ghost" size="sm" className="w-full justify-start">
+                          <DownloadCloudIcon className="mr-2 h-4 w-4" />
+                          <Trans>Download PDF</Trans>
+                        </Button>
+                      }
+                    />
+                  )}
+
+                  {envelope.type === EnvelopeType.DOCUMENT && allowDocumentRejection && (
+                    <DocumentSigningRejectDialog
+                      documentId={mapSecondaryIdToDocumentId(envelope.secondaryId)}
+                      token={recipient.token}
+                      onRejected={
+                        onDocumentRejected &&
+                        ((reason) =>
+                          onDocumentRejected({
+                            token: recipient.token,
+                            documentId: mapSecondaryIdToDocumentId(envelope.secondaryId),
+                            envelopeId: envelope.id,
+                            recipientId: recipient.id,
+                            reason,
+                          }))
+                      }
+                      trigger={
+                        <Button variant="ghost" size="sm" className="w-full justify-start hover:text-destructive">
+                          <BanIcon className="mr-2 h-4 w-4" />
+                          <Trans>Reject Document</Trans>
+                        </Button>
+                      }
+                    />
+                  )}
                 </div>
               )}
 
-              {!isEmbed && <PublicLegalLinks className="mt-4 justify-start px-4 pt-4" />}
+              <div className="embed--DocumentWidgetFooter mt-auto">
+                {/* Footer of left sidebar. */}
+                {!isEmbed && (
+                  <div className="px-4">
+                    <Button asChild variant="ghost" className="w-full justify-start">
+                      <Link to="/">
+                        <ArrowLeftIcon className="mr-2 h-4 w-4" />
+                        <Trans>Return</Trans>
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div
           className="embed--DocumentContainer min-w-0 flex-1 overflow-x-auto overflow-y-auto"
@@ -272,7 +271,7 @@ export const DocumentSigningPageViewV2 = () => {
               )}
 
               {/* Mobile widget - Additional padding to allow users to scroll */}
-              <div className="block pb-28 lg:hidden">
+              <div className={cn('block pb-28', isEmbed && 'lg:hidden')}>
                 <DocumentSigningMobileWidget />
               </div>
 

@@ -1,3 +1,4 @@
+import { textFieldValueToStore } from '@documenso/lib/advanced-fields-validation/text-kinds';
 import { validateCheckboxField } from '@documenso/lib/advanced-fields-validation/validate-checkbox';
 import { validateDropdownField } from '@documenso/lib/advanced-fields-validation/validate-dropdown';
 import { validateNumberField } from '@documenso/lib/advanced-fields-validation/validate-number';
@@ -17,6 +18,7 @@ import { AppError, AppErrorCode } from '../../errors/app-error';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '../../types/document-audit-logs';
 import type { TRecipientActionAuth } from '../../types/document-auth';
 import {
+  type TTextFieldMeta,
   ZCheckboxFieldMeta,
   ZDropdownFieldMeta,
   ZNumberFieldMeta,
@@ -50,6 +52,15 @@ export type SignFieldWithTokenOptions = {
  *
  * Todo: Extract common logic.
  */
+/** A read-only typed field's default, as it is stored once signed (the value that was typed is normalised). */
+const storedDefaultText = (meta: TTextFieldMeta): string | undefined => {
+  try {
+    return textFieldValueToStore(meta.text ?? '', meta);
+  } catch {
+    return undefined;
+  }
+};
+
 export const signFieldWithToken = async ({
   token,
   fieldId,
@@ -195,6 +206,11 @@ export const signFieldWithToken = async ({
 
   let customText = !isSignatureField ? value : undefined;
 
+  // A typed TEXT field is stored normalised (phone as E.164, email lower-cased); a plain one as typed.
+  if (field.type === FieldType.TEXT && field.fieldMeta) {
+    customText = textFieldValueToStore(value, ZTextFieldMeta.parse(field.fieldMeta));
+  }
+
   const signatureImageAsBase64 = isSignatureField && isBase64 ? value : undefined;
   const typedSignature = isSignatureField && !isBase64 ? value : undefined;
 
@@ -218,7 +234,7 @@ export const signFieldWithToken = async ({
     // !: this weird programattic approach. Until that's fixed though this will verify
     // !: that the programmatic signed value is only that of its default.
     const isAutomaticSigningValueValid = match(field.fieldMeta)
-      .with({ type: 'text' }, (meta) => customText === meta.text)
+      .with({ type: 'text' }, (meta) => customText === meta.text || customText === storedDefaultText(meta))
       .with({ type: 'number' }, (meta) => customText === meta.value)
       .with({ type: 'checkbox' }, (meta) =>
         isDeepEqual(

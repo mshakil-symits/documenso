@@ -16,10 +16,12 @@ import { SigningCard3D } from '@documenso/ui/components/signing-card';
 import { cn } from '@documenso/ui/lib/utils';
 import { Badge } from '@documenso/ui/primitives/badge';
 import { Button } from '@documenso/ui/primitives/button';
+import { useToast } from '@documenso/ui/primitives/use-toast';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { DocumentStatus, FieldType, RecipientRole } from '@prisma/client';
-import { CheckCircle2, Clock8, DownloadIcon, Loader2 } from 'lucide-react';
+import { CheckCircle2, Clock8, DownloadIcon, HomeIcon, InboxIcon, Loader2, XIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { match } from 'ts-pattern';
 
@@ -89,8 +91,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const returnToHomePath = canRedirectToFolder ? `/t/${document.team.url}/documents/f/${document.folderId}` : '/';
 
+  const homeRedirectUrl = document.documentMeta?.redirectUrl || null;
+
   return {
     isDocumentAccessValid: true,
+    homeRedirectUrl,
     canSignUp,
     recipientName,
     recipientEmail: recipient.email,
@@ -117,9 +122,28 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
     document,
     recipient,
     recipientEmail,
-    returnToHomePath,
     branding,
+    homeRedirectUrl,
   } = loaderData;
+
+  const { toast } = useToast();
+
+  /**
+   * Browsers only let a script close tabs it opened itself, which is rarely the case for
+   * a tab opened from an email link. When the tab stays open, tell the user instead.
+   */
+  const onCloseClick = () => {
+    window.close();
+
+    setTimeout(() => {
+      if (!window.closed) {
+        toast({
+          title: _(msg`You can now close this tab`),
+          description: _(msg`Your browser did not allow this page to close itself.`),
+        });
+      }
+    }, 300);
+  };
 
   // Poll signing status every few seconds
   const { data: signingStatusData } = trpc.envelope.signingStatus.useQuery(
@@ -270,10 +294,25 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
                 />
               )}
 
-              {user && (
+              <Button type="button" variant="outline" onClick={onCloseClick}>
+                <XIcon className="mr-2 h-5 w-5" />
+                <Trans>Close</Trans>
+              </Button>
+
+              {homeRedirectUrl && (
                 <Button asChild>
-                  <Link to={returnToHomePath}>
-                    <Trans>Go Back Home</Trans>
+                  <a href={homeRedirectUrl}>
+                    <HomeIcon className="mr-2 h-5 w-5" />
+                    <Trans>Home</Trans>
+                  </a>
+                </Button>
+              )}
+
+              {!homeRedirectUrl && user && (
+                <Button asChild>
+                  <Link to="/inbox">
+                    <InboxIcon className="mr-2 h-5 w-5" />
+                    <Trans>Home</Trans>
                   </Link>
                 </Button>
               )}

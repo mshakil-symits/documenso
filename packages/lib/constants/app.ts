@@ -157,4 +157,10 @@ export const CSC_INSTANCE_SIGNATURE_LEVEL = (): TSignatureLevel => {
 
 export const DOCUMENSO_CLOUD_ENTERPRISE_CTA_URL = 'https://documen.so/enterprise-cta';
 
+/**
+ * Public location of the source code of this modified version, offered to all users
+ * interacting with it over a network as required by AGPL-3.0 section 13.
+ */
+export const SOURCE_CODE_URL = 'https://github.com/mshakil-symits/documenso';
+
 export const MAX_POSTGRES_INT = 2147483647;
