@@ -1,5 +1,5 @@
 import type { TTextFieldMeta as TextFieldMeta } from '../types/field-meta';
-import { normaliseTextValue } from './text-kinds';
+import { isSafeRegex, normaliseTextValue } from './text-kinds';
 
 export const validateTextField = (
   value: string,
@@ -20,6 +20,10 @@ export const validateTextField = (
 
   if (fieldMeta.minLength && value.length > 0 && value.length < fieldMeta.minLength) {
     errors.push(`Value length (${value.length}) is below the minimum length (${fieldMeta.minLength})`);
+  }
+
+  if (fieldMeta.pattern && !isSafeRegex(fieldMeta.pattern)) {
+    errors.push('The pattern is invalid or too complex');
   }
 
   if (value.length > 0) {

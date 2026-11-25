@@ -2,35 +2,21 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { DateTime } from 'luxon';
 
 import type { TTextFieldMeta } from '../types/field-meta';
+import { isSafeRegex } from '../utils/safe-regex';
+
+export { isSafeRegex };
 
 export type NormalisedTextValue = { ok: true; value: string } | { ok: false; error: string };
 
-const MAX_PATTERN_LENGTH = 200;
+const MAX_PATTERNED_VALUE_LENGTH = 1000;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CURRENCY = /^-?\d{1,3}(,?\d{3})*(\.\d{1,2})?$/;
-// A group that is itself repeated and holds a repeat: the shape of catastrophic backtracking, e.g. (a+)+
-const NESTED_QUANTIFIER = /\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)[+*{]/;
 
 const DEFAULT_FORMATS = {
   date: 'yyyy-MM-dd',
   time: 'HH:mm',
   datetime: 'yyyy-MM-dd HH:mm',
 } as const;
-
-/** Whether a pattern is fit to run against a signer's input: short, compiles, and no nested repeats. */
-export const isSafeRegex = (pattern: string): boolean => {
-  if (pattern.length > MAX_PATTERN_LENGTH || NESTED_QUANTIFIER.test(pattern)) {
-    return false;
-  }
-
-  try {
-    new RegExp(`^(?:${pattern})$`);
-
-    return true;
-  } catch {
-    return false;
-  }
-};
 
 const parseDate = (value: string, format: string) => DateTime.fromFormat(value, format, { locale: 'en-US' });
 
@@ -117,10 +103,33 @@ export const normaliseTextValue = (rawValue: string, meta: TTextFieldMeta): Norm
   if (meta.pattern || meta.inputKind === 'pattern') {
     const pattern = meta.pattern ?? '';
 
-    if (!pattern || !isSafeRegex(pattern) || !new RegExp(`^(?:${pattern})$`).test(value)) {
+    if (
+      !pattern ||
+      value.length > MAX_PATTERNED_VALUE_LENGTH ||
+      !isSafeRegex(pattern) ||
+      !new RegExp(`^(?:${pattern})$`).test(value)
+    ) {
       return { ok: false, error: meta.patternMessage || 'The value does not match the required format' };
     }
   }
 
   return result;
+};
+
+/**
+ * The value to store for a signed TEXT field: normalised per its input kind (see normaliseTextValue), or the
+ * value exactly as typed for a plain field, as before. Throws the validation message when it is not acceptable.
+ */
+export const textFieldValueToStore = (value: string, meta: TTextFieldMeta): string => {
+  if ((!meta.inputKind || meta.inputKind === 'text') && !meta.pattern) {
+    return value;
+  }
+
+  const result = normaliseTextValue(value, meta);
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+
+  return result.value;
 };

@@ -1,7 +1,7 @@
 import { FieldType } from '@prisma/client';
 import { z } from 'zod';
-
 import { DEFAULT_SIGNATURE_TEXT_FONT_SIZE } from '../constants/pdf';
+import { isSafeRegex } from '../utils/safe-regex';
 
 export const FIELD_DEFAULT_GENERIC_VERTICAL_ALIGN = 'middle';
 export const FIELD_DEFAULT_GENERIC_ALIGN = 'left';
@@ -135,7 +135,7 @@ export const ZTextFieldMeta = ZBaseFieldMeta.extend({
   characterLimit: z.coerce.number({ invalid_type_error: 'Value must be a number' }).min(0).optional(),
   inputKind: ZTextFieldInputKind.optional(),
   minLength: z.coerce.number({ invalid_type_error: 'Value must be a number' }).min(0).optional(),
-  pattern: z.string().max(200).optional(),
+  pattern: z.string().max(200).refine(isSafeRegex, { message: 'The pattern is invalid or too complex' }).optional(),
   patternMessage: z.string().max(200).optional(),
   defaultCountry: ZCountryCode.optional(),
   allowedCountries: z.array(ZCountryCode).optional(),

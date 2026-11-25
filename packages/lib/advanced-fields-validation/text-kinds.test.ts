@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { TTextFieldMeta } from '../types/field-meta';
-import { isSafeRegex, normaliseTextValue } from './text-kinds';
+import { isSafeRegex, normaliseTextValue, textFieldValueToStore } from './text-kinds';
 
 const meta = (extra: Partial<TTextFieldMeta>): TTextFieldMeta => ({ type: 'text', ...extra });
 
@@ -110,6 +110,10 @@ describe('normaliseTextValue', () => {
       expect(ok('abc', { pattern: '\\d+', patternMessage: 'Digits only' })).toBe('ERROR: Digits only');
     });
 
+    it('refuses to run a pattern against a very long value', () => {
+      expect(fails('1'.repeat(1001), { pattern: '\\d+' })).toBe(true);
+    });
+
     it('applies a pattern on any kind', () => {
       expect(fails('a@b.com', { inputKind: 'email', pattern: '.*@corp\\.com' })).toBe(true);
     });
@@ -133,5 +137,20 @@ describe('isSafeRegex', () => {
 
   it('rejects a pattern over 200 characters', () => {
     expect(isSafeRegex('a'.repeat(201))).toBe(false);
+  });
+});
+
+describe('textFieldValueToStore', () => {
+  it('returns the normalised value', () => {
+    expect(textFieldValueToStore('+1 (415) 555-2671', meta({ inputKind: 'phone' }))).toBe('+14155552671');
+    expect(textFieldValueToStore(' A@B.com ', meta({ inputKind: 'email' }))).toBe('a@b.com');
+  });
+
+  it('throws the validation message for a bad value', () => {
+    expect(() => textFieldValueToStore('nope', meta({ inputKind: 'email' }))).toThrow('Enter a valid email address');
+  });
+
+  it('leaves a plain field untouched, spaces included', () => {
+    expect(textFieldValueToStore('  keep  ', meta({}))).toBe('  keep  ');
   });
 });

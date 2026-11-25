@@ -34,4 +34,13 @@ describe('validateTextField input kinds', () => {
   it('is unchanged for a field with no inputKind', () => {
     expect(validateTextField('anything at all', meta({}), true)).toEqual([]);
   });
+
+  it('rejects a field whose pattern is unsafe, when the field is created', () => {
+    expect(validateTextField('', meta({ pattern: '(a+)+$' }))).toHaveLength(1);
+    expect(validateTextField('', meta({ pattern: '(' }))).toHaveLength(1);
+  });
+
+  it('accepts a field with a safe pattern at creation', () => {
+    expect(validateTextField('', meta({ pattern: '\\d+' }))).toEqual([]);
+  });
 });

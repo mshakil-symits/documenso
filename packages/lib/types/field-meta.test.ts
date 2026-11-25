@@ -53,4 +53,10 @@ describe('ZTextFieldMeta input kinds', () => {
   it('rejects a defaultCountry that is not two letters', () => {
     expect(ZTextFieldMeta.safeParse({ ...base, inputKind: 'phone', defaultCountry: 'USA' }).success).toBe(false);
   });
+
+  it('rejects a pattern that does not compile or has nested quantifiers', () => {
+    expect(ZTextFieldMeta.safeParse({ ...base, pattern: '(' }).success).toBe(false);
+    expect(ZTextFieldMeta.safeParse({ ...base, pattern: '(a+)+$' }).success).toBe(false);
+    expect(ZTextFieldMeta.safeParse({ ...base, pattern: '\\d{3}-\\d{2}' }).success).toBe(true);
+  });
 });

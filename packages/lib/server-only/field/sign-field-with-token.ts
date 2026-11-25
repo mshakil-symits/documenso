@@ -1,3 +1,4 @@
+import { textFieldValueToStore } from '@documenso/lib/advanced-fields-validation/text-kinds';
 import { validateCheckboxField } from '@documenso/lib/advanced-fields-validation/validate-checkbox';
 import { validateDropdownField } from '@documenso/lib/advanced-fields-validation/validate-dropdown';
 import { validateNumberField } from '@documenso/lib/advanced-fields-validation/validate-number';
@@ -190,6 +191,11 @@ export const signFieldWithToken = async ({
   const isSignatureField = field.type === FieldType.SIGNATURE || field.type === FieldType.FREE_SIGNATURE;
 
   let customText = !isSignatureField ? value : undefined;
+
+  // A typed TEXT field is stored normalised (phone as E.164, email lower-cased); a plain one as typed.
+  if (field.type === FieldType.TEXT && field.fieldMeta) {
+    customText = textFieldValueToStore(value, ZTextFieldMeta.parse(field.fieldMeta));
+  }
 
   const signatureImageAsBase64 = isSignatureField && isBase64 ? value : undefined;
   const typedSignature = isSignatureField && !isBase64 ? value : undefined;
