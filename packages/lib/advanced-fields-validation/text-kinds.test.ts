@@ -129,6 +129,41 @@ describe('normaliseTextValue', () => {
   });
 });
 
+describe('isSafeRegex catastrophic shapes', () => {
+  it.each([
+    '((a+))+',
+    '(a{1,})+',
+    '(\\d{1,3},?)+',
+    '([A-Za-z]{1,20}\\s?)+',
+    '(\\w?\\w?)+',
+    'a*a*a*a*a*a*b',
+    '.*.*.*.*=',
+    '(a)\\1',
+    '(?=a)a',
+    '(?<=a)b',
+  ])('rejects %s', (pattern) => {
+    expect(isSafeRegex(pattern)).toBe(false);
+  });
+
+  it.each([
+    '\\d{3}-\\d{2}-\\d{4}',
+    '(\\d{3})?-\\d{4}',
+    '[A-Za-z ]{1,50}',
+    '(Mr|Mrs)\\.? [A-Z][a-z]+',
+    '^\\+?\\d{7,15}$',
+  ])('accepts %s', (pattern) => {
+    expect(isSafeRegex(pattern)).toBe(true);
+  });
+});
+
+describe('value length cap', () => {
+  it('rejects an overlong email without running the email check on it', () => {
+    const result = normaliseTextValue(`a@${'.'.repeat(50000)}@`, { inputKind: 'email' } as never);
+
+    expect(result.ok).toBe(false);
+  });
+});
+
 describe('isSafeRegex', () => {
   it('accepts ordinary patterns', () => {
     expect(isSafeRegex('^\\d{3}-\\d{2}$')).toBe(true);
