@@ -1,5 +1,6 @@
 import backgroundPattern from '@documenso/assets/images/background-pattern.png';
 import { Outlet } from 'react-router';
+import { SourceCodeLink } from '~/components/general/source-code-link';
 
 export default function Layout() {
   return (
@@ -21,6 +22,8 @@ export default function Layout() {
           <Outlet />
         </div>
       </div>
+
+      <SourceCodeLink />
     </main>
   );
 }

@@ -17,7 +17,9 @@ import { useRequiredEnvelopeSigningContext } from './envelope-signing-provider';
 export const DocumentSigningMobileWidget = () => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { hidePoweredBy = true } = useEmbedSigningContext() || {};
+  const embedContext = useEmbedSigningContext();
+  const { hidePoweredBy = true } = embedContext || {};
+  const isEmbed = embedContext !== null;
 
   const { recipientFieldsRemaining, recipient, requiredRecipientFields } = useRequiredEnvelopeSigningContext();
 
@@ -107,7 +109,7 @@ export const DocumentSigningMobileWidget = () => {
           {/* Expandable Content */}
           {isExpanded && (
             <div className="slide-in-from-bottom-2 animate-in border-border border-t p-4 duration-200">
-              <EnvelopeSignerForm />
+              <EnvelopeSignerForm hideSignature={!isEmbed} />
 
               {!hidePoweredBy && (
                 <div className="mt-2 inline-block rounded bg-primary px-2 py-1 font-medium text-primary-foreground text-xs opacity-60 hover:opacity-100 lg:hidden">
