@@ -277,30 +277,30 @@ export const DocumentSigningCheckboxField = ({
           )}
           <div
             className={cn(
-              'z-50 my-0.5 flex gap-1',
-              parsedFieldMeta.direction === 'horizontal' ? 'flex-row flex-wrap' : 'flex-col gap-y-1',
+              // The options span the field's padding too, and each label's ::before covers its whole row, so a
+              // fingertip anywhere on the field reaches an option, not just the 12px box.
+              'z-50 -mx-2 flex self-stretch',
+              parsedFieldMeta.direction === 'horizontal' ? 'flex-row flex-wrap' : 'flex-col',
             )}
           >
             {values?.map((item: { id: number; value: string; checked: boolean }, index: number) => {
               const itemValue = item.value || `empty-value-${item.id}`;
 
               return (
-                <div key={index} className="flex items-center">
+                <div key={index} className="relative flex flex-1 items-center py-0.5">
                   <Checkbox
-                    className="h-3 w-3"
+                    className="relative z-10 ml-2 h-3 w-3 border-gray-700"
                     id={`checkbox-${field.id}-${item.id}`}
                     checked={checkedValues.includes(itemValue)}
                     disabled={isReadOnly}
                     onCheckedChange={() => handleCheckboxChange(item.value, item.id)}
                   />
-                  {!item.value.includes('empty-value-') && item.value && (
-                    <Label
-                      htmlFor={`checkbox-${field.id}-${item.id}`}
-                      className="ml-1.5 font-normal text-foreground text-xs"
-                    >
-                      {item.value}
-                    </Label>
-                  )}
+                  <Label
+                    htmlFor={`checkbox-${field.id}-${item.id}`}
+                    className="cursor-pointer pr-2 pl-1.5 font-normal text-foreground text-xs before:absolute before:inset-0 before:content-['']"
+                  >
+                    {!item.value.includes('empty-value-') && item.value}
+                  </Label>
                 </div>
               );
             })}
@@ -311,30 +311,28 @@ export const DocumentSigningCheckboxField = ({
       {field.inserted && (
         <div
           className={cn(
-            'my-0.5 flex gap-1',
-            parsedFieldMeta.direction === 'horizontal' ? 'flex-row flex-wrap' : 'flex-col gap-y-1',
+            '-mx-2 flex self-stretch',
+            parsedFieldMeta.direction === 'horizontal' ? 'flex-row flex-wrap' : 'flex-col',
           )}
         >
           {values?.map((item: { id: number; value: string; checked: boolean }, index: number) => {
             const itemValue = item.value || `empty-value-${item.id}`;
 
             return (
-              <div key={index} className="flex items-center">
+              <div key={index} className="relative flex flex-1 items-center py-0.5">
                 <Checkbox
-                  className="h-3 w-3"
+                  className="relative z-10 ml-2 h-3 w-3 border-gray-700"
                   id={`checkbox-${field.id}-${item.id}`}
                   checked={parsedCheckedValues.includes(itemValue)}
                   disabled={isLoading || isReadOnly}
                   onCheckedChange={() => void handleCheckboxOptionClick(item)}
                 />
-                {!item.value.includes('empty-value-') && item.value && (
-                  <Label
-                    htmlFor={`checkbox-${field.id}-${item.id}`}
-                    className="ml-1.5 font-normal text-foreground text-xs"
-                  >
-                    {item.value}
-                  </Label>
-                )}
+                <Label
+                  htmlFor={`checkbox-${field.id}-${item.id}`}
+                  className="cursor-pointer pr-2 pl-1.5 font-normal text-foreground text-xs before:absolute before:inset-0 before:content-['']"
+                >
+                  {!item.value.includes('empty-value-') && item.value}
+                </Label>
               </div>
             );
           })}

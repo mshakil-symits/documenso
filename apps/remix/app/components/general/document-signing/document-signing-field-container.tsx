@@ -155,7 +155,10 @@ export const DocumentSigningFieldContainer = ({
       {(field.type === FieldType.RADIO || field.type === FieldType.CHECKBOX) && field.fieldMeta?.label && (
         <div
           className={cn(
-            'absolute -top-16 right-0 left-0 rounded-md p-2 text-center text-gray-700 text-xs',
+            // A label only: it floats a fixed 64px above its field, over whatever field sits there, so taps
+            // go through it. On a phone the page is scaled down and it would hide the one or two fields
+            // above, so it is not shown there at all.
+            'pointer-events-none absolute -top-16 right-0 left-0 hidden rounded-md p-2 text-center text-gray-700 text-xs sm:block',
             {
               'border border-border bg-foreground/5': !field.inserted,
             },
