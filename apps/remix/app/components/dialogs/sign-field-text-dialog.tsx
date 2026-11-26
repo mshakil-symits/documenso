@@ -1,4 +1,6 @@
+import { validateTextField } from '@documenso/lib/advanced-fields-validation/validate-text';
 import type { TTextFieldMeta } from '@documenso/lib/types/field-meta';
+import { splitTextFieldErrors, textInputTypeFor } from '@documenso/lib/utils/field-signing/text-field';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import {
@@ -10,6 +12,7 @@ import {
   DialogTitle,
 } from '@documenso/ui/primitives/dialog';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@documenso/ui/primitives/form/form';
+import { Input } from '@documenso/ui/primitives/input';
 import { Textarea } from '@documenso/ui/primitives/textarea';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { msg, plural } from '@lingui/core/macro';
@@ -21,9 +24,11 @@ import { z } from 'zod';
 const createSignFieldTextFormSchema = ({
   isInserted,
   characterLimit,
+  fieldMeta,
 }: {
   isInserted: boolean;
   characterLimit?: number;
+  fieldMeta?: TTextFieldMeta;
 }) =>
   z.object({
     text: z.string().superRefine((text, ctx) => {
@@ -45,9 +50,23 @@ const createSignFieldTextFormSchema = ({
             other: '# characters over the limit',
           }),
         });
+
+        return;
+      }
+
+      // The kind the author chose (email, phone, date, pattern...) is checked here, as the server will on save.
+      if (fieldMeta && text.length > 0) {
+        const { format } = splitTextFieldErrors(validateTextField(text, fieldMeta, true));
+
+        if (format.length > 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: format[0] });
+        }
       }
     }),
   });
+
+const ERROR_CLASSES =
+  'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200';
 
 type TSignFieldTextFormSchema = z.infer<ReturnType<typeof createSignFieldTextFormSchema>>;
 
@@ -73,8 +92,10 @@ export const SignFieldTextDialog = createCallable<SignFieldTextDialogProps, Sign
     // A limit of 0 means the field has no limit.
     const characterLimit = fieldMeta?.characterLimit || undefined;
 
+    const inputType = fieldMeta ? textInputTypeFor(fieldMeta) : 'textarea';
+
     const form = useForm<TSignFieldTextFormSchema>({
-      resolver: zodResolver(createSignFieldTextFormSchema({ isInserted, characterLimit })),
+      resolver: zodResolver(createSignFieldTextFormSchema({ isInserted, characterLimit, fieldMeta })),
       defaultValues: {
         text: insertedText ?? '',
       },
@@ -119,18 +140,27 @@ export const SignFieldTextDialog = createCallable<SignFieldTextDialogProps, Sign
                       <FormItem>
                         {/* The dialog doesn't scroll, so the max height leaves 20rem for its title and buttons. */}
                         <FormControl>
-                          <Textarea
-                            id="custom-text"
-                            placeholder={fieldMeta?.placeholder ?? t`Enter your text here`}
-                            className={cn(
-                              'h-auto max-h-[calc(100dvh-20rem)] min-h-20 w-full rounded-md [field-sizing:content]',
-                              {
-                                'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':
-                                  fieldState.error,
-                              },
-                            )}
-                            {...field}
-                          />
+                          {inputType === 'textarea' ? (
+                            <Textarea
+                              id="custom-text"
+                              placeholder={fieldMeta?.placeholder ?? t`Enter your text here`}
+                              className={cn(
+                                'h-auto max-h-[calc(100dvh-20rem)] min-h-20 w-full rounded-md text-base [field-sizing:content] md:text-base',
+                                { [ERROR_CLASSES]: fieldState.error },
+                              )}
+                              {...field}
+                            />
+                          ) : (
+                            <Input
+                              id="custom-text"
+                              type={inputType}
+                              placeholder={fieldMeta?.placeholder ?? t`Enter your text here`}
+                              className={cn('h-12 w-full rounded-md text-base md:text-base', {
+                                [ERROR_CLASSES]: fieldState.error,
+                              })}
+                              {...field}
+                            />
+                          )}
                         </FormControl>
 
                         {(fieldState.error !== undefined || isCounterVisible || isInserted) && (

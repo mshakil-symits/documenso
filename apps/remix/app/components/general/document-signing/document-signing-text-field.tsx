@@ -268,7 +268,7 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
               <Textarea
                 id="custom-text"
                 placeholder={parsedFieldMeta?.placeholder ?? _(msg`Enter your text here`)}
-                className={cn('mt-2 w-full rounded-md', {
+                className={cn('mt-2 w-full rounded-md text-base md:text-base', {
                   'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':
                     userInputHasErrors,
                   'text-center': parsedFieldMeta?.textAlign === 'center',
@@ -282,7 +282,7 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
                 id="custom-text"
                 type={inputType}
                 placeholder={parsedFieldMeta?.placeholder ?? dateFormatHint}
-                className={cn('mt-2 w-full rounded-md', {
+                className={cn('mt-2 h-12 w-full rounded-md text-base md:text-base', {
                   'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':
                     userInputHasErrors,
                   'text-center': parsedFieldMeta?.textAlign === 'center',
