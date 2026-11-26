@@ -18,6 +18,7 @@ import { NEXT_PRIVATE_INTERNAL_WEBAPP_URL } from '../../constants/app';
 import {
   ZCheckboxFieldMeta,
   ZDateFieldMeta,
+  ZDropdownFieldMeta,
   ZEmailFieldMeta,
   ZInitialsFieldMeta,
   ZNameFieldMeta,
@@ -354,6 +355,8 @@ export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSigna
         [FieldType.TEXT]: ZTextFieldMeta,
         [FieldType.NUMBER]: ZNumberFieldMeta,
         [FieldType.DATE]: ZDateFieldMeta,
+        // A dropdown's choice prints as text too, so its font size applies the same way
+        [FieldType.DROPDOWN]: ZDropdownFieldMeta,
         [FieldType.EMAIL]: ZEmailFieldMeta,
         [FieldType.NAME]: ZNameFieldMeta,
         [FieldType.INITIALS]: ZInitialsFieldMeta,
@@ -364,7 +367,7 @@ export const insertFieldInPDFV1 = async (pdf: PDFDocument, field: FieldWithSigna
       const meta = fieldMetaParser ? fieldMetaParser.safeParse(field.fieldMeta) : null;
 
       const customFontSize = meta?.success && meta.data.fontSize ? meta.data.fontSize : null;
-      const textAlign = meta?.success && meta.data.textAlign ? meta.data.textAlign : 'left';
+      const textAlign = meta?.success && 'textAlign' in meta.data && meta.data.textAlign ? meta.data.textAlign : 'left';
 
       // A typed TEXT field prints as people read it (a phone in international format); the stored value is unchanged.
       const printedText =

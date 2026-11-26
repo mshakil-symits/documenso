@@ -2,9 +2,9 @@ import { getServerLimits } from '@documenso/ee/server-only/limits/server';
 import { assertTextFieldMetaUsable } from '@documenso/lib/advanced-fields-validation/assert-text-meta';
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { DATE_FORMATS, DEFAULT_DOCUMENT_DATE_FORMAT } from '@documenso/lib/constants/date-formats';
+import { parseApiV1FieldMeta } from '@documenso/lib/utils/parse-api-v1-field-meta';
 import { DocumentDataType, DocumentStatus, EnvelopeType, SigningStatus } from '@prisma/client';
 import { tsr } from '@ts-rest/serverless/fetch';
-import { match } from 'ts-pattern';
 import '@documenso/lib/constants/time-zones';
 import { DEFAULT_DOCUMENT_TIME_ZONE, TIME_ZONES } from '@documenso/lib/constants/time-zones';
 import { AppError } from '@documenso/lib/errors/app-error';
@@ -29,14 +29,7 @@ import { deleteTemplate } from '@documenso/lib/server-only/template/delete-templ
 import { findTemplates } from '@documenso/lib/server-only/template/find-templates';
 import { getTemplateById } from '@documenso/lib/server-only/template/get-template-by-id';
 import { extractDerivedDocumentEmailSettings } from '@documenso/lib/types/document-email';
-import {
-  ZCheckboxFieldMeta,
-  ZDropdownFieldMeta,
-  ZFieldMetaSchema,
-  ZNumberFieldMeta,
-  ZRadioFieldMeta,
-  ZTextFieldMeta,
-} from '@documenso/lib/types/field-meta';
+import { ZFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { getFileServerSide } from '@documenso/lib/universal/upload/get-file.server';
 import { putNormalizedPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
 import { getPresignGetUrl, getPresignPostUrl } from '@documenso/lib/universal/upload/server-actions';
@@ -1390,22 +1383,7 @@ export const ApiContractV1Implementation = tsr.router(ApiContractV1, {
               throw new Error('Field meta type does not match the field type');
             }
 
-            const result = match(type)
-              .with('RADIO', () => ZRadioFieldMeta.safeParse(fieldMeta))
-              .with('CHECKBOX', () => ZCheckboxFieldMeta.safeParse(fieldMeta))
-              .with('DROPDOWN', () => ZDropdownFieldMeta.safeParse(fieldMeta))
-              .with('NUMBER', () => ZNumberFieldMeta.safeParse(fieldMeta))
-              .with('TEXT', () => ZTextFieldMeta.safeParse(fieldMeta))
-              .with('SIGNATURE', 'INITIALS', 'DATE', 'EMAIL', 'NAME', () => ({
-                success: true,
-                data: undefined,
-              }))
-              .with('FREE_SIGNATURE', () => ({
-                success: false,
-                error: 'FREE_SIGNATURE is not supported',
-                data: undefined,
-              }))
-              .exhaustive();
+            const result = parseApiV1FieldMeta(type, fieldMeta);
 
             if (!result.success) {
               throw new Error('Field meta parsing failed');
