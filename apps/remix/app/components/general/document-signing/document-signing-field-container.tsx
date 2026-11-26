@@ -1,3 +1,4 @@
+import { PDF_VIEWER_PAGE_SELECTOR } from '@documenso/lib/constants/pdf-viewer';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
 import { ZFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import type { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
@@ -10,6 +11,7 @@ import { FieldType } from '@prisma/client';
 import { TooltipArrow } from '@radix-ui/react-tooltip';
 import { X } from 'lucide-react';
 import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 
@@ -153,25 +155,103 @@ export const DocumentSigningFieldContainer = ({
       )}
 
       {(field.type === FieldType.RADIO || field.type === FieldType.CHECKBOX) && field.fieldMeta?.label && (
-        <div
-          className={cn(
-            // A label only: it floats a fixed 64px above its field, over whatever field sits there, so taps
-            // go through it. On a phone the page is scaled down and it would hide the one or two fields
-            // above, so it is not shown there at all.
-            'pointer-events-none absolute -top-16 right-0 left-0 hidden rounded-md p-2 text-center text-gray-700 text-xs sm:block',
-            {
-              'border border-border bg-foreground/5': !field.inserted,
-            },
-            {
-              'border border-primary bg-documenso-200': field.inserted,
-            },
-          )}
-        >
-          {field.fieldMeta.label}
-        </div>
+        <FieldLabelChip label={field.fieldMeta.label} page={field.page} inserted={field.inserted} />
       )}
 
       {children}
     </FieldRootContainer>
+  );
+};
+
+const rectsOverlap = (a: DOMRect, b: DOMRect) =>
+  a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+type FieldLabelChipProps = {
+  label: string;
+  page: number;
+  inserted: boolean;
+};
+
+/**
+ * A checkbox or radio field's label, floating a fixed 64px above the field. It is display only, so taps go
+ * through it, and it is hidden while it would cover another field: on a densely placed form (and on a phone,
+ * where the page is scaled down) it would otherwise hide the boxes of the fields above.
+ */
+const FieldLabelChip = ({ label, page, inserted }: FieldLabelChipProps) => {
+  const $label = useRef<HTMLDivElement>(null);
+
+  // Hidden until measured, so it never flashes over a neighbour.
+  const [coversField, setCoversField] = useState(true);
+
+  useEffect(() => {
+    let frame = 0;
+
+    const check = () => {
+      cancelAnimationFrame(frame);
+
+      frame = requestAnimationFrame(() => {
+        const $chip = $label.current;
+        const $ownField = $chip?.closest('[data-field-type]');
+
+        if (!$chip || !$ownField) {
+          return;
+        }
+
+        const chipRect = $chip.getBoundingClientRect();
+
+        const covers = Array.from(document.querySelectorAll('[data-field-type]')).some(($field) => {
+          if ($field === $ownField) {
+            return false;
+          }
+
+          const fieldRect = $field.getBoundingClientRect();
+
+          return fieldRect.width > 0 && fieldRect.height > 0 && rectsOverlap(chipRect, fieldRect);
+        });
+
+        setCoversField(covers);
+      });
+    };
+
+    check();
+
+    // Fields move when the page is resized, and mount one by one as pages render.
+    window.addEventListener('resize', check);
+
+    const resizeObserver = new ResizeObserver(check);
+    const $page = document.querySelector(`${PDF_VIEWER_PAGE_SELECTOR}[data-page-number="${page}"]`);
+
+    if ($page) {
+      resizeObserver.observe($page);
+    }
+
+    const mutationObserver = new MutationObserver(check);
+    mutationObserver.observe(document.getElementById('document-field-portal-root') ?? document.body, {
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', check);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [page]);
+
+  return (
+    <div
+      ref={$label}
+      className={cn(
+        'pointer-events-none absolute -top-16 right-0 left-0 rounded-md p-2 text-center text-gray-700 text-xs',
+        {
+          invisible: coversField,
+          'border border-border bg-foreground/5': !inserted,
+          'border border-primary bg-documenso-200': inserted,
+        },
+      )}
+    >
+      {label}
+    </div>
   );
 };
