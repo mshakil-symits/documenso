@@ -76,8 +76,8 @@ export const DocumentSigningMobileWidget = () => {
                     ) : (
                       <Plural
                         value={recipientFieldsRemaining.length}
-                        one="1 Field Remaining"
-                        other="# Fields Remaining"
+                        one="1 required field remaining"
+                        other="# required fields remaining"
                       />
                     )}
                   </p>

@@ -130,8 +130,8 @@ export const DocumentSigningPageViewV2 = () => {
                     <span className="rounded border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
                       <Plural
                         value={recipientFieldsRemaining.length}
-                        one="1 Field Remaining"
-                        other="# Fields Remaining"
+                        one="1 required field remaining"
+                        other="# required fields remaining"
                       />
                     </span>
 

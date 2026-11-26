@@ -314,7 +314,12 @@ export const DocumentSigningPageViewV1 = ({
                             recipient={recipient}
                             allowDictateNextSigner={nextRecipient && documentMeta?.allowDictateNextSigner}
                             defaultNextSigner={
-                              nextRecipient ? { name: nextRecipient.name, email: nextRecipient.email } : undefined
+                              nextRecipient
+                                ? {
+                                    name: nextRecipient.name,
+                                    email: nextRecipient.email,
+                                  }
+                                : undefined
                             }
                           />
                         </div>
@@ -389,7 +394,11 @@ export const DocumentSigningPageViewV1 = ({
 
                   <p className="-mt-0.5 text-muted-foreground text-sm">
                     {hasPendingFields ? (
-                      <Plural value={pendingFields.length} one="1 Field Remaining" other="# Fields Remaining" />
+                      <Plural
+                        value={pendingFields.length}
+                        one="1 required field remaining"
+                        other="# required fields remaining"
+                      />
                     ) : (
                       <Trans>Please complete the document once reviewed</Trans>
                     )}
@@ -409,7 +418,12 @@ export const DocumentSigningPageViewV1 = ({
                     recipient={recipient}
                     allowDictateNextSigner={nextRecipient && documentMeta?.allowDictateNextSigner}
                     defaultNextSigner={
-                      nextRecipient ? { name: nextRecipient.name, email: nextRecipient.email } : undefined
+                      nextRecipient
+                        ? {
+                            name: nextRecipient.name,
+                            email: nextRecipient.email,
+                          }
+                        : undefined
                     }
                   />
                 </div>
