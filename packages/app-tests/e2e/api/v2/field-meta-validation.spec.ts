@@ -290,4 +290,60 @@ test.describe('Field meta configuration validation', () => {
 
     expect(dbField.fieldMeta).toMatchObject(readOnlyMeta);
   });
+
+  test.describe('envelope/create with inline fields', () => {
+    const createWithTextMeta = async (request: APIRequestContext, fieldMeta: Record<string, unknown>) => {
+      const payload = {
+        type: EnvelopeType.DOCUMENT,
+        title: 'Inline text meta',
+        recipients: [
+          {
+            email: `inline-${Date.now()}@test.documenso.com`,
+            name: 'Inline Signer',
+            role: RecipientRole.SIGNER,
+            fields: [{ type: FieldType.TEXT, identifier: 0, fieldMeta, ...FIELD_POSITION }],
+          },
+        ],
+      };
+
+      const formData = new FormData();
+      formData.append('payload', JSON.stringify(payload));
+
+      const pdfData = fs.readFileSync(path.join(__dirname, '../../../../../assets/example.pdf'));
+      formData.append('files', new File([pdfData], 'test.pdf', { type: 'application/pdf' }));
+
+      return await request.post(`${baseUrl}/envelope/create`, {
+        headers: { Authorization: `Bearer ${token}` },
+        multipart: formData,
+      });
+    };
+
+    test('stores a phone field and rejects a custom-format field that has no pattern', async ({ request }) => {
+      const okRes = await createWithTextMeta(request, { type: 'text', inputKind: 'phone', defaultCountry: 'US' });
+
+      expect(okRes.ok()).toBeTruthy();
+
+      const { id } = (await okRes.json()) as TCreateEnvelopeResponse;
+      const dbField = await prisma.field.findFirstOrThrow({
+        where: {
+          envelope: {
+            id,
+          },
+        },
+      });
+
+      expect(dbField.fieldMeta).toMatchObject({ inputKind: 'phone', defaultCountry: 'US' });
+
+      const noPatternRes = await createWithTextMeta(request, { type: 'text', inputKind: 'pattern' });
+
+      expect(noPatternRes.ok()).toBeFalsy();
+      expect(await noPatternRes.text()).toContain('needs a pattern');
+    });
+
+    test('rejects an unsafe pattern', async ({ request }) => {
+      const res = await createWithTextMeta(request, { type: 'text', inputKind: 'pattern', pattern: '(a+)+$' });
+
+      expect(res.ok()).toBeFalsy();
+    });
+  });
 });

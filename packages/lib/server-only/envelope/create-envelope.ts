@@ -1,3 +1,5 @@
+import { assertTextFieldMetaUsable } from '@documenso/lib/advanced-fields-validation/assert-text-meta';
+import { validateFieldMetaConfiguration } from '@documenso/lib/advanced-fields-validation/validate-field-meta-configuration';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import type { PlaceholderInfo } from '@documenso/lib/server-only/pdf/auto-place-fields';
 import { convertPlaceholdersToFieldInputs } from '@documenso/lib/server-only/pdf/auto-place-fields';
@@ -457,6 +459,8 @@ export const createEnvelope = async ({
         });
 
         const recipientFieldsToCreate = (recipient.fields || []).map((field) => {
+          assertFieldMetaUsable(field);
+
           let envelopeItemId = firstEnvelopeItem.id;
 
           if (field.documentDataId) {
@@ -623,6 +627,8 @@ export const createEnvelope = async ({
           envelopeItem.id,
         );
 
+        fieldsToCreate.forEach(assertFieldMetaUsable);
+
         if (fieldsToCreate.length > 0) {
           await tx.field.createMany({
             data: fieldsToCreate.map((field) => ({
@@ -774,4 +780,20 @@ export const createEnvelope = async ({
   }
 
   return createdEnvelope;
+};
+
+const assertFieldMetaUsable = (field: { type: string; fieldMeta?: TFieldAndMeta['fieldMeta'] | null }) => {
+  if (!field.fieldMeta) {
+    return;
+  }
+
+  assertTextFieldMetaUsable(field.fieldMeta);
+
+  const errors = validateFieldMetaConfiguration(field.fieldMeta);
+
+  if (errors.length > 0) {
+    throw new AppError(AppErrorCode.INVALID_REQUEST, {
+      message: `Invalid field meta for ${field.type} field: ${errors.join(', ')}`,
+    });
+  }
 };

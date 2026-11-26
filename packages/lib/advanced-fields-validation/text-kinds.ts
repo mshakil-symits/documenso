@@ -24,6 +24,8 @@ const isEmail = (value: string): boolean => {
 
   return dot > 0 && dot < domain.length - 1;
 };
+// US and Canada share the +1 code, so one default parses a national number for both
+const DEFAULT_PHONE_COUNTRY = 'US';
 const CURRENCY = /^-?\d{1,3}(,?\d{3})*(\.\d{1,2})?$/;
 
 const DEFAULT_FORMATS = {
@@ -36,7 +38,10 @@ const parseDate = (value: string, format: string) => DateTime.fromFormat(value, 
 
 const normalisePhone = (value: string, meta: TTextFieldMeta): NormalisedTextValue => {
   const withPlus = value.replace(/^00/, '+');
-  const phone = parsePhoneNumberFromString(withPlus, (meta.defaultCountry?.toUpperCase() || undefined) as never);
+  const phone = parsePhoneNumberFromString(
+    withPlus,
+    (meta.defaultCountry?.toUpperCase() || DEFAULT_PHONE_COUNTRY) as never,
+  );
 
   if (!phone?.isValid()) {
     return { ok: false, error: 'Enter a valid phone number, including the country code' };

@@ -49,8 +49,13 @@ describe('normaliseTextValue', () => {
       expect(ok('0044 20 7946 0958', { inputKind: 'phone' })).toBe('+442079460958');
     });
 
-    it('rejects a number with no country and no default', () => {
-      expect(fails('415 555 2671', { inputKind: 'phone' })).toBe(true);
+    it('reads a national number as US/Canada when no default country is set', () => {
+      expect(ok('415 555 2671', { inputKind: 'phone' })).toBe('+14155552671');
+      expect(ok('(416) 555-0123', { inputKind: 'phone' })).toBe('+14165550123');
+    });
+
+    it('does not read a national UK number as US when no default country is set', () => {
+      expect(fails('020 7946 0958', { inputKind: 'phone' })).toBe(true);
     });
 
     it('rejects letters and short numbers', () => {

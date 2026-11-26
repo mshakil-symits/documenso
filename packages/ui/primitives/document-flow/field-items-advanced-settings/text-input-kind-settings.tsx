@@ -90,7 +90,7 @@ export const TextInputKindSettings = ({ meta, onChange }: TextInputKindSettingsP
       {kind === 'phone' && (
         <div>
           <Label>
-            <Trans>Default country (2 letters, e.g. US)</Trans>
+            <Trans>Default country (2 letters, blank is US/Canada)</Trans>
           </Label>
           <Input
             id="defaultCountry"
