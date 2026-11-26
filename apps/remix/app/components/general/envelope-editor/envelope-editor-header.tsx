@@ -75,7 +75,7 @@ export default function EnvelopeEditorHeader() {
             <img src={`/api/branding/logo/team/${envelope.teamId}`} alt="Logo" className="h-6 w-auto" />
           ) : (
             <Link to="/">
-              <EngyjLogo className="h-7" />
+              <EngyjLogo className="h-10" />
             </Link>
           )}
           <Separator orientation="vertical" className="h-6 shrink-0" />

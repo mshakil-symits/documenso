@@ -22,7 +22,9 @@ services:
     image: inbucket/inbucket
     container_name: mailserver
     ports:
-      - 9000:9000
+      # Host 9000 is already taken by another project's Minio on this machine - only
+      # the host side is remapped, the container still serves its UI on 9000 internally.
+      - 9010:9000
       - 2500:2500
       - 1100:1100
 

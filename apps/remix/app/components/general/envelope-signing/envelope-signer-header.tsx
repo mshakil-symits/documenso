@@ -44,8 +44,8 @@ export const EnvelopeSignerHeader = () => {
             />
           ) : (
             <Link to="/" className="flex-shrink-0">
-              <EngyjLogo className="hidden h-7 md:block" />
-              <EngyjLogoIcon className="h-7 md:hidden" />
+              <EngyjLogo className="hidden h-10 md:block" />
+              <EngyjLogoIcon className="h-10 md:hidden" />
             </Link>
           ))}
 

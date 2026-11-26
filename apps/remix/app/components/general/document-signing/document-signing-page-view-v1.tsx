@@ -160,7 +160,7 @@ export const DocumentSigningPageViewV1 = ({
               className="h-7 w-auto flex-shrink-0"
             />
           ) : (
-            <EngyjLogo className="h-7 flex-shrink-0" />
+            <EngyjLogo className="h-10 flex-shrink-0" />
           )}
 
           <h1 className="min-w-0 truncate font-semibold text-base text-foreground" title={document.title}>

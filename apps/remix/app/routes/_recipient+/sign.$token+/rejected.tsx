@@ -1,5 +1,4 @@
 import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session';
-import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
 import { loadRecipientBrandingByTeamId } from '@documenso/lib/server-only/branding/load-recipient-branding';
 import { getDocumentAndSenderByToken } from '@documenso/lib/server-only/document/get-document-by-token';
 import { isRecipientAuthorized } from '@documenso/lib/server-only/document/is-recipient-authorized';
@@ -7,10 +6,12 @@ import { getFieldsForToken } from '@documenso/lib/server-only/field/get-fields-f
 import { getRecipientByToken } from '@documenso/lib/server-only/recipient/get-recipient-by-token';
 import { Badge } from '@documenso/ui/primitives/badge';
 import { Button } from '@documenso/ui/primitives/button';
+import { useToast } from '@documenso/ui/primitives/use-toast';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { FieldType } from '@prisma/client';
-import { XCircle } from 'lucide-react';
-import { Link } from 'react-router';
+import { XCircle, XIcon } from 'lucide-react';
 
 import { DocumentSigningAuthPageView } from '~/components/general/document-signing/document-signing-auth-page';
 import { RecipientBranding } from '~/components/general/recipient-branding';
@@ -78,11 +79,28 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 }
 
 export default function RejectedSigningPage({ loaderData }: Route.ComponentProps) {
-  const { sessionData } = useOptionalSession();
-  const user = sessionData?.user;
+  const { _ } = useLingui();
+  const { toast } = useToast();
   const cspNonce = useCspNonce();
 
   const { isDocumentAccessValid, recipientReference, truncatedTitle, branding } = loaderData;
+
+  /**
+   * Browsers only let a script close tabs it opened itself, which is rarely the case for
+   * a tab opened from an email link. When the tab stays open, tell the user instead.
+   */
+  const onCloseClick = () => {
+    window.close();
+
+    setTimeout(() => {
+      if (!window.closed) {
+        toast({
+          title: _(msg`You can now close this tab`),
+          description: _(msg`Your browser did not allow this page to close itself.`),
+        });
+      }
+    }, 300);
+  };
 
   if (!isDocumentAccessValid) {
     return (
@@ -125,13 +143,10 @@ export default function RejectedSigningPage({ loaderData }: Route.ComponentProps
             <Trans>No further action is required from you at this time.</Trans>
           </p>
 
-          {user && (
-            <Button className="mt-6" asChild>
-              <Link to={`/`}>
-                <Trans>Return Home</Trans>
-              </Link>
-            </Button>
-          )}
+          <Button type="button" variant="outline" className="mt-6" onClick={onCloseClick}>
+            <XIcon className="mr-2 h-5 w-5" />
+            <Trans>Close</Trans>
+          </Button>
         </div>
       </div>
     </>

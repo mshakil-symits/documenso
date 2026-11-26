@@ -65,7 +65,7 @@ export const Header = ({ className, fullWidth = false, ...props }: HeaderProps) 
           to={getRootHref(params)}
           className="hidden rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:inline"
         >
-          <EngyjLogo className="h-7" />
+          <EngyjLogo className="h-10" />
         </Link>
 
         <AppNavDesktop setIsCommandMenuOpen={setIsCommandMenuOpen} />

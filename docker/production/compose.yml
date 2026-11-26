@@ -20,6 +20,9 @@ services:
     depends_on:
       database:
         condition: service_healthy
+    networks:                                   # <- new
+      - default                                 # <- keeps access to its own Postgres
+      - engyj-video
     environment:
       - PORT=${PORT:-3000}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?err}
@@ -70,13 +73,33 @@ services:
       - NEXT_PUBLIC_DISABLE_MICROSOFT_SIGNIN=${NEXT_PUBLIC_DISABLE_MICROSOFT_SIGNIN}
       - NEXT_PUBLIC_DISABLE_OIDC_SIGNIN=${NEXT_PUBLIC_DISABLE_OIDC_SIGNIN}
       - NEXT_PUBLIC_DISABLE_OIDC_AUTO_REDIRECT=${NEXT_PUBLIC_DISABLE_OIDC_AUTO_REDIRECT}
+      - NEXT_PRIVATE_OIDC_WELL_KNOWN=${NEXT_PRIVATE_OIDC_WELL_KNOWN}
+      - NEXT_PRIVATE_OIDC_CLIENT_ID=${NEXT_PRIVATE_OIDC_CLIENT_ID}
+      - NEXT_PRIVATE_OIDC_CLIENT_SECRET=${NEXT_PRIVATE_OIDC_CLIENT_SECRET}
+      - NEXT_PRIVATE_OIDC_PROVIDER_LABEL=${NEXT_PRIVATE_OIDC_PROVIDER_LABEL}
+      - NEXT_PRIVATE_OIDC_SKIP_VERIFY=${NEXT_PRIVATE_OIDC_SKIP_VERIFY}
+      - NEXT_PRIVATE_OIDC_PROMPT=${NEXT_PRIVATE_OIDC_PROMPT}
+      - NEXT_PUBLIC_POST_SIGNOUT_URL=${NEXT_PUBLIC_POST_SIGNOUT_URL}
       - NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH=${NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH:-/opt/documenso/cert.p12}
       - NEXT_PRIVATE_SIGNING_PASSPHRASE=${NEXT_PRIVATE_SIGNING_PASSPHRASE}
       - NEXT_PUBLIC_USE_INTERNAL_URL_BROWSERLESS=${NEXT_PUBLIC_USE_INTERNAL_URL_BROWSERLESS}
+      - NEXT_PRIVATE_LOGGER_FILE_PATH=${NEXT_PRIVATE_LOGGER_FILE_PATH}
     ports:
       - ${PORT:-3000}:${PORT:-3000}
     volumes:
       - /opt/documenso/cert.p12:/opt/documenso/cert.p12:ro
+      - /var/log/documenso:/app/logs
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
 volumes:
   database:
+
+networks:                                             # <- new block, at the end of the file
+  default:
+  engyj-video:
+    name: engyj-video_default                   # the network engyj-video's compose already created
+    external: true                              # don't create or delete it, just join it

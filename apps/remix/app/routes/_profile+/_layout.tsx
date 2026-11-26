@@ -49,8 +49,8 @@ export default function PublicProfileLayout() {
               to="/"
               className="rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:inline"
             >
-              <EngyjLogo className="hidden h-7 sm:block" />
-              <EngyjLogoIcon className="h-8 sm:hidden" />
+              <EngyjLogo className="hidden h-10 sm:block" />
+              <EngyjLogoIcon className="h-10 sm:hidden" />
             </Link>
 
             <div className="flex flex-row items-center justify-center">

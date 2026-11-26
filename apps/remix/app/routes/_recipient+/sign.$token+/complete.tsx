@@ -1,6 +1,5 @@
 import signingCelebration from '@documenso/assets/images/signing-celebration.png';
 import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session';
-import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
 import { isSignupEnabledForProvider } from '@documenso/lib/constants/auth';
 import { loadRecipientBrandingByTeamId } from '@documenso/lib/server-only/branding/load-recipient-branding';
 import { getDocumentAndSenderByToken } from '@documenso/lib/server-only/document/get-document-by-token';
@@ -21,8 +20,7 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { DocumentStatus, FieldType, RecipientRole } from '@prisma/client';
-import { CheckCircle2, Clock8, DownloadIcon, HomeIcon, InboxIcon, Loader2, XIcon } from 'lucide-react';
-import { Link } from 'react-router';
+import { CheckCircle2, Clock8, DownloadIcon, Loader2, XIcon } from 'lucide-react';
 import { match } from 'ts-pattern';
 
 import { EnvelopeDownloadDialog } from '~/components/dialogs/envelope-download-dialog';
@@ -91,11 +89,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const returnToHomePath = canRedirectToFolder ? `/t/${document.team.url}/documents/f/${document.folderId}` : '/';
 
-  const homeRedirectUrl = document.documentMeta?.redirectUrl || null;
-
   return {
     isDocumentAccessValid: true,
-    homeRedirectUrl,
     canSignUp,
     recipientName,
     recipientEmail: recipient.email,
@@ -110,21 +105,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 export default function CompletedSigningPage({ loaderData }: Route.ComponentProps) {
   const { _ } = useLingui();
 
-  const { sessionData } = useOptionalSession();
-  const user = sessionData?.user;
   const cspNonce = useCspNonce();
 
-  const {
-    isDocumentAccessValid,
-    canSignUp,
-    recipientName,
-    signatures,
-    document,
-    recipient,
-    recipientEmail,
-    branding,
-    homeRedirectUrl,
-  } = loaderData;
+  const { isDocumentAccessValid, canSignUp, recipientName, signatures, document, recipient, recipientEmail, branding } =
+    loaderData;
 
   const { toast } = useToast();
 
@@ -298,24 +282,6 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
                 <XIcon className="mr-2 h-5 w-5" />
                 <Trans>Close</Trans>
               </Button>
-
-              {homeRedirectUrl && (
-                <Button asChild>
-                  <a href={homeRedirectUrl}>
-                    <HomeIcon className="mr-2 h-5 w-5" />
-                    <Trans>Home</Trans>
-                  </a>
-                </Button>
-              )}
-
-              {!homeRedirectUrl && user && (
-                <Button asChild>
-                  <Link to="/inbox">
-                    <InboxIcon className="mr-2 h-5 w-5" />
-                    <Trans>Home</Trans>
-                  </Link>
-                </Button>
-              )}
             </div>
           </div>
 
