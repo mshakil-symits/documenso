@@ -147,7 +147,8 @@ const passesLuhn = (digits: string): boolean => {
 const normaliseCardNumber = (value: string): NormalisedTextValue => {
   const digits = value.replace(/[\s-]/g, '');
 
-  if (!/^\d{13,19}$/.test(digits)) {
+  // No card number starts with 0 (and an all-zero number would pass Luhn)
+  if (!/^[1-9]\d{12,18}$/.test(digits)) {
     return { ok: false, error: CARD_INVALID };
   }
 

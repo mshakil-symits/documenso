@@ -268,7 +268,14 @@ describe('zip and credit card kinds', () => {
 
   it('says a number failing the check digit looks mistyped, and anything malformed is not a card number', () => {
     expect(ok('4111 1111 1111 1112', { inputKind: 'credit_card' })).toBe(CARD_MISTYPED);
-    for (const value of ['4111 1111 1111', '4111 1111 1111 111a', '37828224631000', '55555555555544440']) {
+    for (const value of [
+      '4111 1111 1111',
+      '4111 1111 1111 111a',
+      '37828224631000',
+      '55555555555544440',
+      '0000 0000 0000 0000',
+      '0000000000000',
+    ]) {
       expect(ok(value, { inputKind: 'credit_card' })).toBe(CARD_INVALID);
     }
   });
