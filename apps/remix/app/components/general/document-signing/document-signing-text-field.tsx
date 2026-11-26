@@ -281,6 +281,7 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
               <Input
                 id="custom-text"
                 type={inputType}
+                inputMode={parsedFieldMeta?.inputKind === 'credit_card' ? 'numeric' : undefined}
                 placeholder={parsedFieldMeta?.placeholder ?? dateFormatHint}
                 className={cn('mt-2 h-12 w-full rounded-md text-base md:text-base', {
                   'border-2 border-red-300 text-left ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':

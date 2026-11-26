@@ -154,6 +154,7 @@ export const SignFieldTextDialog = createCallable<SignFieldTextDialogProps, Sign
                             <Input
                               id="custom-text"
                               type={inputType}
+                              inputMode={fieldMeta?.inputKind === 'credit_card' ? 'numeric' : undefined}
                               placeholder={fieldMeta?.placeholder ?? t`Enter your text here`}
                               className={cn('h-12 w-full rounded-md text-base md:text-base', {
                                 [ERROR_CLASSES]: fieldState.error,

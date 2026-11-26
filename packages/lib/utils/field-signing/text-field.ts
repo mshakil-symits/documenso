@@ -5,8 +5,38 @@ import type { TTextFieldInputKind, TTextFieldMeta } from '../../types/field-meta
 
 export type TextInputType = 'textarea' | 'text' | 'email' | 'tel' | 'date' | 'time';
 
-/** What a stored TEXT value looks like to people: a phone number in international format, anything else as is. */
+/** A card number's digits grouped as printed on the card: 4-6-5 for Amex, otherwise in fours. Other text is left as is. */
+const groupCardNumber = (value: string): string => {
+  if (!/^\d+$/.test(value)) {
+    return value;
+  }
+
+  const groups = /^3[47]/.test(value) ? [4, 6, 5] : [4, 4, 4, 4, 3];
+  const parts: string[] = [];
+  let at = 0;
+
+  for (const size of groups) {
+    if (at >= value.length) {
+      break;
+    }
+
+    parts.push(value.slice(at, at + size));
+    at += size;
+  }
+
+  if (at < value.length) {
+    parts.push(value.slice(at));
+  }
+
+  return parts.join(' ');
+};
+
+/** What a stored TEXT value looks like to people: a phone number in international format, a card number grouped, anything else as is. */
 export const formatTextForDisplay = (value: string, meta: TTextFieldMeta): string => {
+  if (meta.inputKind === 'credit_card') {
+    return groupCardNumber(value);
+  }
+
   if (meta.inputKind !== 'phone') {
     return value;
   }

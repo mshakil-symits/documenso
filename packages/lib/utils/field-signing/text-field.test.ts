@@ -6,6 +6,16 @@ import { dateFormatsFor, formatTextForDisplay, splitTextFieldErrors, textInputTy
 const meta = (extra: Partial<TTextFieldMeta>): TTextFieldMeta => ({ type: 'text', ...extra });
 
 describe('formatTextForDisplay', () => {
+  it('groups a stored card number for display (Amex 4-6-5, others in fours)', () => {
+    expect(formatTextForDisplay('378282246310005', meta({ inputKind: 'credit_card' }))).toBe('3782 822463 10005');
+    expect(formatTextForDisplay('4111111111111111', meta({ inputKind: 'credit_card' }))).toBe('4111 1111 1111 1111');
+  });
+
+  it('asks for zip and card numbers in a text input', () => {
+    expect(textInputTypeFor(meta({ inputKind: 'zip' }))).toBe('text');
+    expect(textInputTypeFor(meta({ inputKind: 'credit_card' }))).toBe('text');
+  });
+
   it('shows a phone number in international format', () => {
     expect(formatTextForDisplay('+14155552671', meta({ inputKind: 'phone' }))).toBe('+1 415 555 2671');
   });

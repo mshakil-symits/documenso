@@ -141,6 +141,8 @@ export const ZTextFieldInputKind = z.enum([
   'datetime',
   'currency',
   'pattern',
+  'zip',
+  'credit_card',
 ]);
 
 export type TTextFieldInputKind = z.infer<typeof ZTextFieldInputKind>;

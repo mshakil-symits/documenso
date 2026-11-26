@@ -82,6 +82,8 @@ export const TextInputKindSettings = ({ meta, onChange }: TextInputKindSettingsP
             <SelectItem value="time">{t`Time`}</SelectItem>
             <SelectItem value="datetime">{t`Date and time`}</SelectItem>
             <SelectItem value="currency">{t`Amount`}</SelectItem>
+            <SelectItem value="zip">{t`Zip code`}</SelectItem>
+            <SelectItem value="credit_card">{t`Credit card`}</SelectItem>
             <SelectItem value="pattern">{t`Custom format`}</SelectItem>
           </SelectContent>
         </Select>

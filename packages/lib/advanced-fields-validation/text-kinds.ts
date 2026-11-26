@@ -28,6 +28,13 @@ const isEmail = (value: string): boolean => {
 const DEFAULT_PHONE_COUNTRY = 'US';
 const CURRENCY = /^-?\d{1,3}(,?\d{3})*(\.\d{1,2})?$/;
 
+// A US ZIP or ZIP+4, or a Canadian postal code. Mirrors engyj-document's lib/zipCode.ts and App\Support\ZipCode.
+const US_ZIP = /^\d{5}(-\d{4})?$/;
+const CA_POSTAL = /^([ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z]) ?(\d[ABCEGHJ-NPRSTV-Z]\d)$/i;
+const ZIP_ERROR = 'Enter a valid ZIP or postal code, e.g. 12345 or A1A 1A1.';
+const CARD_INVALID = 'Enter a valid card number.';
+const CARD_MISTYPED = 'Check the card number, it looks mistyped.';
+
 const DEFAULT_FORMATS = {
   date: 'yyyy-MM-dd',
   time: 'HH:mm',
@@ -83,6 +90,76 @@ const normaliseDate = (
   return { ok: true, value };
 };
 
+const normaliseZip = (value: string): NormalisedTextValue => {
+  if (US_ZIP.test(value)) {
+    return { ok: true, value };
+  }
+
+  const postal = CA_POSTAL.exec(value);
+
+  return postal ? { ok: true, value: `${postal[1]} ${postal[2]}`.toUpperCase() } : { ok: false, error: ZIP_ERROR };
+};
+
+// The lengths a card brand's numbers come in, from its first digits; null for a brand we don't know.
+// Mirrors engyj-document's lib/cardNumber.ts and App\Support\CardNumber.
+const cardBrandLengths = (digits: string): number[] | null => {
+  const four = Number(digits.slice(0, 4));
+
+  if (/^3[47]/.test(digits)) {
+    return [15];
+  }
+
+  if (digits.startsWith('4')) {
+    return [13, 16, 19];
+  }
+
+  if (/^5[1-5]/.test(digits) || (four >= 2221 && four <= 2720)) {
+    return [16];
+  }
+
+  if (/^(6011|65)/.test(digits)) {
+    return [16, 17, 18, 19];
+  }
+
+  return null;
+};
+
+const passesLuhn = (digits: string): boolean => {
+  let sum = 0;
+
+  for (let i = 0; i < digits.length; i++) {
+    let digit = Number(digits[digits.length - 1 - i]);
+
+    if (i % 2 === 1) {
+      digit *= 2;
+
+      if (digit > 9) {
+        digit -= 9;
+      }
+    }
+
+    sum += digit;
+  }
+
+  return sum % 10 === 0;
+};
+
+const normaliseCardNumber = (value: string): NormalisedTextValue => {
+  const digits = value.replace(/[\s-]/g, '');
+
+  if (!/^\d{13,19}$/.test(digits)) {
+    return { ok: false, error: CARD_INVALID };
+  }
+
+  const lengths = cardBrandLengths(digits);
+
+  if (lengths && !lengths.includes(digits.length)) {
+    return { ok: false, error: CARD_INVALID };
+  }
+
+  return passesLuhn(digits) ? { ok: true, value: digits } : { ok: false, error: CARD_MISTYPED };
+};
+
 const applyKind = (value: string, meta: TTextFieldMeta): NormalisedTextValue => {
   switch (meta.inputKind) {
     case 'email':
@@ -99,6 +176,10 @@ const applyKind = (value: string, meta: TTextFieldMeta): NormalisedTextValue => 
       return CURRENCY.test(value)
         ? { ok: true, value: value.replace(/,/g, '') }
         : { ok: false, error: 'Enter an amount like 1234.50' };
+    case 'zip':
+      return normaliseZip(value);
+    case 'credit_card':
+      return normaliseCardNumber(value);
     default:
       return { ok: true, value };
   }

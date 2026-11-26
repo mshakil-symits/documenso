@@ -20,7 +20,18 @@ describe('normaliseTextValue', () => {
   });
 
   it('accepts an empty value for every kind (required is checked elsewhere)', () => {
-    for (const inputKind of ['text', 'email', 'phone', 'date', 'time', 'datetime', 'currency', 'pattern'] as const) {
+    for (const inputKind of [
+      'text',
+      'email',
+      'phone',
+      'date',
+      'time',
+      'datetime',
+      'currency',
+      'pattern',
+      'zip',
+      'credit_card',
+    ] as const) {
       expect(ok('', { inputKind, pattern: '^a$' })).toBe('');
     }
   });
@@ -221,5 +232,44 @@ describe('textFieldValueToStore', () => {
 
   it('leaves a plain field untouched, spaces included', () => {
     expect(textFieldValueToStore('  keep  ', meta({}))).toBe('  keep  ');
+  });
+});
+
+describe('zip and credit card kinds', () => {
+  const ZIP_ERROR = 'ERROR: Enter a valid ZIP or postal code, e.g. 12345 or A1A 1A1.';
+  const CARD_INVALID = 'ERROR: Enter a valid card number.';
+  const CARD_MISTYPED = 'ERROR: Check the card number, it looks mistyped.';
+
+  it('accepts a US ZIP or ZIP+4 as typed and stores a Canadian postal code upper-cased with its space', () => {
+    expect(ok('12345', { inputKind: 'zip' })).toBe('12345');
+    expect(ok('12345-6789', { inputKind: 'zip' })).toBe('12345-6789');
+    expect(ok('K1A 0B1', { inputKind: 'zip' })).toBe('K1A 0B1');
+    expect(ok('k1a0b1', { inputKind: 'zip' })).toBe('K1A 0B1');
+  });
+
+  it('refuses anything else as a zip', () => {
+    for (const value of ['1234', '123456', '12345-678', 'D1A 0B1', 'ABCDE']) {
+      expect(ok(value, { inputKind: 'zip' })).toBe(ZIP_ERROR);
+    }
+  });
+
+  it('stores a valid card number as digits only', () => {
+    expect(ok('4111-1111-1111-1111', { inputKind: 'credit_card' })).toBe('4111111111111111');
+    for (const value of [
+      '4111 1111 1111 1111',
+      '378282246310005',
+      '5555555555554444',
+      '6011111111111117',
+      '4222222222222',
+    ]) {
+      expect(ok(value, { inputKind: 'credit_card' })).toBe(value.replace(/\D/g, ''));
+    }
+  });
+
+  it('says a number failing the check digit looks mistyped, and anything malformed is not a card number', () => {
+    expect(ok('4111 1111 1111 1112', { inputKind: 'credit_card' })).toBe(CARD_MISTYPED);
+    for (const value of ['4111 1111 1111', '4111 1111 1111 111a', '37828224631000', '55555555555544440']) {
+      expect(ok(value, { inputKind: 'credit_card' })).toBe(CARD_INVALID);
+    }
   });
 });
