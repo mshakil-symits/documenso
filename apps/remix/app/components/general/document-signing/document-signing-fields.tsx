@@ -54,7 +54,8 @@ export const DocumentSigningFieldsInserted = ({
         ref={$text}
         className={cn(
           // No transition: the fit below reads the layout right after each font size change.
-          'w-full text-left text-[clamp(0.425rem,25cqw,0.825rem)] text-foreground leading-[1.1]',
+          // No pointer events: an answer running below its box must not catch taps meant for the field beneath.
+          'pointer-events-none w-full text-left text-[clamp(0.425rem,25cqw,0.825rem)] text-foreground leading-[1.1]',
           {
             'whitespace-pre-wrap break-words': !isSingleLine,
             'whitespace-nowrap': isSingleLine,
