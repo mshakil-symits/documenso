@@ -383,7 +383,7 @@ export const DocumentSigningPageViewV1 = ({
           <div className="pointer-events-none fixed right-0 bottom-0 left-0 z-50 flex justify-center px-2 pb-2 sm:px-4 sm:pb-6">
             <div className="pointer-events-auto w-full max-w-[760px] overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
               <div className="flex items-center justify-between gap-4 p-4">
-                <div className="flex-shrink-0">
+                <div className="min-w-0">
                   <h2 className="whitespace-nowrap font-semibold text-foreground text-lg">
                     {match(recipient.role)
                       .with(RecipientRole.VIEWER, () => <Trans>View Document</Trans>)
@@ -405,7 +405,7 @@ export const DocumentSigningPageViewV1 = ({
                   </p>
                 </div>
 
-                <div className="min-w-0 flex-1 sm:max-w-[16rem]">
+                <div className="min-w-[8rem] flex-1 sm:max-w-[16rem]">
                   <DocumentSigningCompleteDialog
                     isSubmitting={isSubmitting}
                     documentTitle={document.title}
