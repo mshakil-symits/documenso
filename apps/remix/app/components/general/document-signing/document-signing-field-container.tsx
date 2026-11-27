@@ -40,6 +40,11 @@ export type DocumentSigningFieldContainerProps = {
    */
   onSign?: (documentAuthValue?: TRecipientActionAuth) => Promise<void> | void;
   onRemove?: (fieldType?: string) => Promise<void> | void;
+
+  /**
+   * Called on a tap on the filled field instead of `onRemove`, e.g. to reopen its dialog with the answer.
+   */
+  onEdit?: () => void;
   type?: 'Date' | 'Initials' | 'Email' | 'Name' | 'Signature' | 'Text' | 'Radio' | 'Dropdown' | 'Number' | 'Checkbox';
   tooltipText?: string | null;
 };
@@ -50,6 +55,7 @@ export const DocumentSigningFieldContainer = ({
   onPreSign,
   onSign,
   onRemove,
+  onEdit,
   children,
   type,
   tooltipText,
@@ -107,6 +113,11 @@ export const DocumentSigningFieldContainer = ({
       return;
     }
 
+    if (onEdit) {
+      onEdit();
+      return;
+    }
+
     await onRemove?.();
   };
 
@@ -148,7 +159,8 @@ export const DocumentSigningFieldContainer = ({
         </button>
       )}
 
-      {type !== 'Checkbox' && field.inserted && !loading && !readOnlyField && (
+      {/* A filled checkbox or radio takes taps on its own options, to change the answer in place. */}
+      {type !== 'Checkbox' && type !== 'Radio' && field.inserted && !loading && !readOnlyField && (
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <button className="absolute inset-0 z-10" onClick={onRemoveSignedFieldClick}></button>
@@ -157,7 +169,7 @@ export const DocumentSigningFieldContainer = ({
           <TooltipContent className="border-0 bg-orange-300 fill-orange-300 text-orange-900" sideOffset={2}>
             {tooltipText && <p>{tooltipText}</p>}
 
-            <Trans>Remove</Trans>
+            {onEdit ? <Trans>Edit</Trans> : <Trans>Remove</Trans>}
             <TooltipArrow />
           </TooltipContent>
         </Tooltip>

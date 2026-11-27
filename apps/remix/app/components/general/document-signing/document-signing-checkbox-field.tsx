@@ -25,6 +25,7 @@ import { useRevalidator } from 'react-router';
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useFieldActionLock } from './use-field-action-lock';
 
 export type DocumentSigningCheckboxFieldProps = {
   field: FieldWithSignatureAndFieldMeta;
@@ -87,12 +88,14 @@ export const DocumentSigningCheckboxField = ({
   const { mutateAsync: removeSignedFieldWithToken, isPending: isRemoveSignedFieldWithTokenLoading } =
     trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { isBusy, runExclusive } = useFieldActionLock();
+
+  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading || isBusy;
   const shouldAutoSignField =
     (!field.inserted && checkedValues.length > 0 && isLengthConditionMet) ||
     (!field.inserted && isReadOnly && isLengthConditionMet);
 
-  const onSign = async (authOptions?: TRecipientActionAuth) => {
+  const onSign = runExclusive(async (authOptions?: TRecipientActionAuth) => {
     try {
       // Do nothing, this should only happen when the user clicks the field, but
       // misses the checkbox which triggers this callback.
@@ -143,9 +146,9 @@ export const DocumentSigningCheckboxField = ({
         variant: 'destructive',
       });
     }
-  };
+  });
 
-  const onRemove = async (fieldType?: string) => {
+  const onRemove = runExclusive(async (fieldType?: string) => {
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -179,7 +182,7 @@ export const DocumentSigningCheckboxField = ({
         variant: 'destructive',
       });
     }
-  };
+  });
 
   const handleCheckboxChange = (value: string, itemId: number) => {
     const updatedValue = value || `empty-value-${itemId}`;
@@ -190,7 +193,7 @@ export const DocumentSigningCheckboxField = ({
     setCheckedValues(updatedValues);
   };
 
-  const handleCheckboxOptionClick = async (item: { id: number; checked: boolean; value: string }) => {
+  const handleCheckboxOptionClick = runExclusive(async (item: { id: number; checked: boolean; value: string }) => {
     let updatedValues: string[] = [];
 
     try {
@@ -247,7 +250,7 @@ export const DocumentSigningCheckboxField = ({
     } finally {
       await revalidate();
     }
-  };
+  });
 
   useEffect(() => {
     if (shouldAutoSignField) {
@@ -261,7 +264,13 @@ export const DocumentSigningCheckboxField = ({
   const parsedCheckedValues = useMemo(() => fromCheckboxValue(field.customText), [field.customText]);
 
   return (
-    <DocumentSigningFieldContainer field={field} onSign={onSign} onRemove={onRemove} type="Checkbox">
+    <DocumentSigningFieldContainer
+      field={field}
+      loading={isLoading}
+      onSign={onSign}
+      onRemove={onRemove}
+      type="Checkbox"
+    >
       {isLoading && (
         <div className="absolute inset-0 z-20 flex items-center justify-center rounded-md bg-background">
           <Loader className="h-5 w-5 animate-spin text-primary md:h-8 md:w-8" />
@@ -292,7 +301,7 @@ export const DocumentSigningCheckboxField = ({
                     className="relative z-10 ml-2 h-3 w-3 border-gray-700"
                     id={`checkbox-${field.id}-${item.id}`}
                     checked={checkedValues.includes(itemValue)}
-                    disabled={isReadOnly}
+                    disabled={isReadOnly || isLoading}
                     onCheckedChange={() => handleCheckboxChange(item.value, item.id)}
                   />
                   <Label

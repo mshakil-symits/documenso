@@ -21,6 +21,7 @@ import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-p
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
 import { DocumentSigningFieldsLoader } from './document-signing-fields';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useFieldActionLock } from './use-field-action-lock';
 
 export type DocumentSigningRadioFieldProps = {
   field: FieldWithSignatureAndFieldMeta;
@@ -55,13 +56,15 @@ export const DocumentSigningRadioField = ({ field, onSignField, onUnsignField }:
   const { mutateAsync: removeSignedFieldWithToken, isPending: isRemoveSignedFieldWithTokenLoading } =
     trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { isBusy, runExclusive } = useFieldActionLock();
+
+  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading || isBusy;
   const shouldAutoSignField =
     (!field.inserted && selectedOption) ||
     (!field.inserted && defaultValue) ||
     (!field.inserted && parsedFieldMeta.readOnly && defaultValue);
 
-  const onSign = async (authOptions?: TRecipientActionAuth) => {
+  const onSign = runExclusive(async (authOptions?: TRecipientActionAuth) => {
     try {
       if (!selectedOption) {
         return;
@@ -108,9 +111,9 @@ export const DocumentSigningRadioField = ({ field, onSignField, onUnsignField }:
         variant: 'destructive',
       });
     }
-  };
+  });
 
-  const onRemove = async () => {
+  const onRemove = runExclusive(async () => {
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -142,7 +145,50 @@ export const DocumentSigningRadioField = ({ field, onSignField, onUnsignField }:
         variant: 'destructive',
       });
     }
-  };
+  });
+
+  // A filled radio switches straight to the tapped option; the server inserts a field only once, so the old
+  // answer goes first.
+  const onChangeSelection = runExclusive(async (value: string) => {
+    try {
+      const removePayload: TRemovedSignedFieldWithTokenMutationSchema = {
+        token: recipient.token,
+        fieldId: field.id,
+      };
+
+      const signPayload: TSignFieldWithTokenMutationSchema = {
+        token: recipient.token,
+        fieldId: field.id,
+        value,
+        isBase64: true,
+      };
+
+      if (onUnsignField && onSignField) {
+        await onUnsignField(removePayload);
+        await onSignField(signPayload);
+      } else {
+        await removeSignedFieldWithToken(removePayload);
+        await signFieldWithToken(signPayload);
+      }
+    } catch (err) {
+      console.error(err);
+
+      analytics.captureException(err, {
+        source: 'signing',
+        location: 'sign_field',
+        fieldType: field.type,
+        recipientId: field.recipientId,
+      });
+
+      toast({
+        title: _(msg`Error`),
+        description: _(msg`An error occurred while updating the selection.`),
+        variant: 'destructive',
+      });
+    } finally {
+      await revalidate();
+    }
+  });
 
   const handleSelectItem = (selectedOption: string) => {
     setSelectedOption(selectedOption);
@@ -158,7 +204,7 @@ export const DocumentSigningRadioField = ({ field, onSignField, onUnsignField }:
   }, [selectedOption, field]);
 
   return (
-    <DocumentSigningFieldContainer field={field} onSign={onSign} onRemove={onRemove} type="Radio">
+    <DocumentSigningFieldContainer field={field} loading={isLoading} onSign={onSign} onRemove={onRemove} type="Radio">
       {isLoading && <DocumentSigningFieldsLoader />}
 
       {!field.inserted && (
@@ -173,7 +219,7 @@ export const DocumentSigningRadioField = ({ field, onSignField, onUnsignField }:
                 className="h-3 w-3 shrink-0"
                 value={item.value}
                 id={`option-${field.id}-${item.id}`}
-                disabled={isReadOnly}
+                disabled={isReadOnly || isLoading}
               />
               {!item.value.includes('empty-value-') && item.value && (
                 <Label htmlFor={`option-${field.id}-${item.id}`} className="ml-1.5 font-normal text-foreground text-xs">
@@ -186,14 +232,23 @@ export const DocumentSigningRadioField = ({ field, onSignField, onUnsignField }:
       )}
 
       {field.inserted && (
-        <RadioGroup value={field.customText ?? ''} className="my-0.5 gap-y-1">
+        <RadioGroup
+          value={field.customText ?? ''}
+          onValueChange={(value) => void onChangeSelection(value)}
+          className="z-10 my-0.5 gap-y-1"
+        >
           {values?.map((item, index) => (
             <div key={index} className="flex items-center">
               <RadioGroupItem
                 className="h-3 w-3"
                 value={item.value}
                 id={`option-${field.id}-${item.id}`}
-                disabled={isReadOnly}
+                disabled={isReadOnly || isLoading}
+                onClick={() => {
+                  if (item.value === field.customText) {
+                    void onRemove();
+                  }
+                }}
               />
               {!item.value.includes('empty-value-') && item.value && (
                 <Label htmlFor={`option-${field.id}-${item.id}`} className="ml-1.5 font-normal text-foreground text-xs">

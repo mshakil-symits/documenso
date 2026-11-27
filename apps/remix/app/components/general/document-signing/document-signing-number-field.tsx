@@ -29,6 +29,7 @@ import {
   DocumentSigningFieldsUninserted,
 } from './document-signing-fields';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useFieldActionLock } from './use-field-action-lock';
 
 type ValidationErrors = {
   isNumber: string[];
@@ -78,7 +79,9 @@ export const DocumentSigningNumberField = ({ field, onSignField, onUnsignField }
   const { mutateAsync: removeSignedFieldWithToken, isPending: isRemoveSignedFieldWithTokenLoading } =
     trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { isBusy, runExclusive } = useFieldActionLock();
+
+  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading || isBusy;
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
@@ -105,16 +108,34 @@ export const DocumentSigningNumberField = ({ field, onSignField, onUnsignField }
   const onDialogSignClick = () => {
     setShowNumberModal(false);
 
+    if (field.inserted && localNumber === field.customText) {
+      return;
+    }
+
     void executeActionAuthProcedure({
       onReauthFormSubmit: async (authOptions) => await onSign(authOptions),
       actionTarget: field.type,
     });
   };
 
-  const onSign = async (authOptions?: TRecipientActionAuth) => {
+  const onSign = runExclusive(async (authOptions?: TRecipientActionAuth) => {
     try {
       if (!localNumber || Object.values(errors).some((error) => error.length > 0)) {
         return;
+      }
+
+      // Editing a filled field: the server inserts a field only once, so the old answer goes first.
+      if (field.inserted) {
+        const removePayload: TRemovedSignedFieldWithTokenMutationSchema = {
+          token: recipient.token,
+          fieldId: field.id,
+        };
+
+        if (onUnsignField) {
+          await onUnsignField(removePayload);
+        } else {
+          await removeSignedFieldWithToken(removePayload);
+        }
       }
 
       const payload: TSignFieldWithTokenMutationSchema = {
@@ -159,6 +180,11 @@ export const DocumentSigningNumberField = ({ field, onSignField, onUnsignField }
         variant: 'destructive',
       });
     }
+  });
+
+  const onEdit = () => {
+    setLocalNumber(field.customText);
+    setShowNumberModal(true);
   };
 
   const onPreSign = () => {
@@ -182,7 +208,7 @@ export const DocumentSigningNumberField = ({ field, onSignField, onUnsignField }
     return false;
   };
 
-  const onRemove = async () => {
+  const onRemove = runExclusive(async () => {
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -215,7 +241,7 @@ export const DocumentSigningNumberField = ({ field, onSignField, onUnsignField }
         variant: 'destructive',
       });
     }
-  };
+  });
 
   useEffect(() => {
     if (!showNumberModal) {
@@ -245,9 +271,10 @@ export const DocumentSigningNumberField = ({ field, onSignField, onUnsignField }
   return (
     <DocumentSigningFieldContainer
       field={field}
+      loading={isLoading}
       onPreSign={onPreSign}
       onSign={onSign}
-      onRemove={onRemove}
+      onEdit={onEdit}
       type="Number"
     >
       {isLoading && <DocumentSigningFieldsLoader />}
@@ -320,6 +347,20 @@ export const DocumentSigningNumberField = ({ field, onSignField, onUnsignField }
               >
                 <Trans>Cancel</Trans>
               </Button>
+
+              {field.inserted && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowNumberModal(false);
+                    void onRemove();
+                  }}
+                >
+                  <Trans>Remove</Trans>
+                </Button>
+              )}
 
               <Button
                 type="button"

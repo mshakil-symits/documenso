@@ -35,6 +35,7 @@ import {
   DocumentSigningFieldsUninserted,
 } from './document-signing-fields';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useFieldActionLock } from './use-field-action-lock';
 
 export type DocumentSigningTextFieldProps = {
   field: FieldWithSignatureAndFieldMeta;
@@ -81,7 +82,9 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
   const safeFieldMeta = ZTextFieldMeta.safeParse(field.fieldMeta);
   const parsedFieldMeta = safeFieldMeta.success ? safeFieldMeta.data : null;
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { isBusy, runExclusive } = useFieldActionLock();
+
+  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading || isBusy;
   const shouldAutoSignField =
     (!field.inserted && parsedFieldMeta?.text) ||
     (!field.inserted && parsedFieldMeta?.text && parsedFieldMeta?.readOnly);
@@ -121,6 +124,10 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
 
     setShowCustomTextModal(false);
 
+    if (field.inserted && localText === field.customText) {
+      return;
+    }
+
     void executeActionAuthProcedure({
       onReauthFormSubmit: async (authOptions) => await onSign(authOptions),
       actionTarget: field.type,
@@ -138,10 +145,24 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
     return false;
   };
 
-  const onSign = async (authOptions?: TRecipientActionAuth) => {
+  const onSign = runExclusive(async (authOptions?: TRecipientActionAuth) => {
     try {
       if (!localText || userInputHasErrors) {
         return;
+      }
+
+      // Editing a filled field: the server inserts a field only once, so the old answer goes first.
+      if (field.inserted) {
+        const removePayload: TRemovedSignedFieldWithTokenMutationSchema = {
+          token: recipient.token,
+          fieldId: field.id,
+        };
+
+        if (onUnsignField) {
+          await onUnsignField(removePayload);
+        } else {
+          await removeSignedFieldWithToken(removePayload);
+        }
       }
 
       const payload: TSignFieldWithTokenMutationSchema = {
@@ -186,9 +207,14 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
         variant: 'destructive',
       });
     }
+  });
+
+  const onEdit = () => {
+    setLocalCustomText(field.customText);
+    setShowCustomTextModal(true);
   };
 
-  const onRemove = async () => {
+  const onRemove = runExclusive(async () => {
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -221,7 +247,7 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
         variant: 'destructive',
       });
     }
-  };
+  });
 
   useEffect(() => {
     if (shouldAutoSignField) {
@@ -246,7 +272,14 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
   const charactersRemaining = (parsedFieldMeta?.characterLimit ?? 0) - (localText.length ?? 0);
 
   return (
-    <DocumentSigningFieldContainer field={field} onPreSign={onPreSign} onSign={onSign} onRemove={onRemove} type="Text">
+    <DocumentSigningFieldContainer
+      field={field}
+      loading={isLoading}
+      onPreSign={onPreSign}
+      onSign={onSign}
+      onEdit={onEdit}
+      type="Text"
+    >
       {isLoading && <DocumentSigningFieldsLoader />}
 
       {!field.inserted && (
@@ -347,6 +380,20 @@ export const DocumentSigningTextField = ({ field, onSignField, onUnsignField }: 
               >
                 <Trans>Cancel</Trans>
               </Button>
+
+              {field.inserted && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowCustomTextModal(false);
+                    void onRemove();
+                  }}
+                >
+                  <Trans>Remove</Trans>
+                </Button>
+              )}
 
               <Button
                 type="button"
