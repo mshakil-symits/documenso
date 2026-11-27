@@ -20,6 +20,7 @@ import { useRevalidator } from 'react-router';
 
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
+import { DocumentSigningFieldsInserted } from './document-signing-fields';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
 
 export type DocumentSigningDropdownFieldProps = {
@@ -201,7 +202,7 @@ export const DocumentSigningDropdownField = ({
         )}
 
         {field.inserted && (
-          <p className="text-[clamp(0.425rem,25cqw,0.825rem)] text-foreground duration-200">{field.customText}</p>
+          <DocumentSigningFieldsInserted isSingleLine>{field.customText}</DocumentSigningFieldsInserted>
         )}
       </DocumentSigningFieldContainer>
     </div>

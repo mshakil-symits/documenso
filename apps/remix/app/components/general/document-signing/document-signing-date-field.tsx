@@ -11,7 +11,6 @@ import type {
   TRemovedSignedFieldWithTokenMutationSchema,
   TSignFieldWithTokenMutationSchema,
 } from '@documenso/trpc/server/field-router/schema';
-import { cn } from '@documenso/ui/lib/utils';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
@@ -20,6 +19,7 @@ import { Loader } from 'lucide-react';
 import { useRevalidator } from 'react-router';
 
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
+import { DocumentSigningFieldsInserted } from './document-signing-fields';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
 
 export type DocumentSigningDateFieldProps = {
@@ -158,19 +158,9 @@ export const DocumentSigningDateField = ({
       )}
 
       {field.inserted && (
-        <div className="flex h-full w-full items-center">
-          <p
-            className={cn(
-              'w-full whitespace-nowrap text-left text-[clamp(0.425rem,25cqw,0.825rem)] text-foreground duration-200',
-              {
-                '!text-center': parsedFieldMeta?.textAlign === 'center',
-                '!text-right': parsedFieldMeta?.textAlign === 'right',
-              },
-            )}
-          >
-            {localDateString}
-          </p>
-        </div>
+        <DocumentSigningFieldsInserted textAlign={parsedFieldMeta?.textAlign} isSingleLine>
+          {localDateString}
+        </DocumentSigningFieldsInserted>
       )}
     </DocumentSigningFieldContainer>
   );

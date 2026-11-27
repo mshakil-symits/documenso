@@ -119,7 +119,16 @@ export const DocumentSigningFieldContainer = ({
   };
 
   return (
-    <FieldRootContainer color={getRecipientColorStyles(field.fieldMeta?.readOnly ? 'readOnly' : 0)} field={field}>
+    <FieldRootContainer
+      color={getRecipientColorStyles(field.fieldMeta?.readOnly ? 'readOnly' : 0)}
+      field={field}
+      // A filled field's ring and padding take room from its answer, which on a phone is only a few pixels tall.
+      className={cn({
+        'ring-0': field.inserted,
+        'px-0.5 sm:px-2':
+          field.inserted && field.type !== FieldType.SIGNATURE && field.type !== FieldType.FREE_SIGNATURE,
+      })}
+    >
       {!field.inserted && !loading && !readOnlyField && (
         <button
           type="submit"
